@@ -56,7 +56,11 @@
     .turn-card.user { background-color: var(--user-bubble); align-self: flex-end; width: 90%; }
     .turn-card.active-turn { background-color: var(--active-highlight); border-color: #ffe082; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .speaker-label { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin-bottom: 4px; display: flex; justify-content: space-between; }
-    .script-text { font-size: 1.05rem; line-height: 1.5; }
+    .script-text { font-size: 1.05rem; line-height: 1.6; }
+
+    /* 일본어 후리가나 스타일 */
+    ruby rt { font-size: 0.65em; color: #d9534f; font-weight: normal; }
+    .hide-furigana ruby rt { display: none; }
 
     .control-panel { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; }
     .audio-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -69,14 +73,16 @@
     .ins { background-color: var(--diff-added); padding: 2px 4px; border-radius: 4px; }
     .loading-spinner { text-align: center; padding: 40px; color: var(--text-sub); }
 
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 8px 15px; border-radius: 8px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 8px 15px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
     .speed-control-bar { display: flex; align-items: center; gap: 8px; }
     .speed-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; }
     .speed-control-bar select { width: auto; padding: 4px 8px; font-size: 0.85rem; }
 
-    /* 단어 사전 팝업 */
-    .dict-popover { position: absolute; background: #333; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; z-index: 1000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-width: 250px; }
-    .dict-popover::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border-width: 5px 5px 0; border-style: solid; border-color: #333 transparent; display: block; width: 0; }
+    /* 개선된 사전 말풍선 팝업 */
+    .dict-popover { position: absolute; background: #2b2d42; color: #fff; padding: 12px 16px; border-radius: 10px; font-size: 0.88rem; z-index: 1000; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 280px; }
+    .dict-popover-close { position: absolute; top: 6px; right: 10px; color: #aaa; cursor: pointer; font-size: 1.1rem; font-weight: bold; }
+    .dict-popover-close:hover { color: #fff; }
+    .dict-link { display: inline-block; margin-top: 8px; color: #a5d6a7; text-decoration: underline; font-size: 0.8rem; }
 
     /* 대본 에디터 스타일 */
     .edit-turn-item { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
@@ -89,7 +95,10 @@
 
 <div class="container">
   <!-- 사전 팝업창 -->
-  <div id="dictPopover" class="dict-popover"></div>
+  <div id="dictPopover" class="dict-popover">
+    <span class="dict-popover-close" onclick="hideDictPopover()">×</span>
+    <div id="dictContent"></div>
+  </div>
 
   <!-- 1단계: 대본 생성 설정 -->
   <div id="step-1" class="step active">
@@ -122,7 +131,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>학습 언어</label>
-          <select id="language">
+          <select id="language" onchange="toggleJaFuriganaBtnVisibility()">
             <option value="English">영어 (English)</option>
             <option value="Japanese">일본어 (Japanese)</option>
             <option value="Chinese">중국어 (Chinese)</option>
@@ -166,7 +175,10 @@
     <p class="subtitle">생성된 대본을 확인하거나 수정 후 음성 대화를 시작해 보세요.</p>
     
     <div class="top-bar">
-      <button type="button" id="dictBtn" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+      <div style="display:flex; gap:8px;">
+        <button type="button" id="dictBtn" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="furiganaBtn2" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 보기</button>
+      </div>
       <div class="speed-control-bar">
         <label for="step2-speed">🔊 음성 속도:</label>
         <select id="step2-speed" onchange="syncSpeedOptions(this.value)">
@@ -182,7 +194,7 @@
 
     <div id="preview-box" class="chat-box"></div>
 
-    <!-- 대본 편집기 영역 -->
+    <!-- 대본 에디터 영역 -->
     <div id="editor-box" style="display:none; margin: 20px 0;">
       <h3>✏️ 대본 직접 작성/수정</h3>
       <div id="editor-rows"></div>
@@ -202,7 +214,10 @@
     <p class="subtitle">카드 문장을 클릭하면 언제든 다시 들을 수 있습니다.</p>
     
     <div class="top-bar">
-      <button type="button" id="dictBtn3" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+      <div style="display:flex; gap:8px;">
+        <button type="button" id="dictBtn3" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="furiganaBtn3" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 보기</button>
+      </div>
       <div class="speed-control-bar">
         <label for="step3-speed">🔊 음성 속도:</label>
         <select id="step3-speed" onchange="syncSpeedOptions(this.value)">
@@ -239,13 +254,14 @@
 </div>
 
 <script>
-  var creationMode = 'ai'; // 'ai' 또는 'manual'
+  var creationMode = 'ai';
   var scriptData = [];
   var currentTurn = 0;
   var userRecordings = [];
   var recognition = null;
   var isRecording = false;
   var isDictMode = false;
+  var showFurigana = true;
 
   document.getElementById('apiProvider').addEventListener('change', function(e) {
     var link = document.getElementById('keyLink');
@@ -257,6 +273,23 @@
       link.innerText = 'OpenAI API Key 발급받기 ↗';
     }
   });
+
+  function toggleJaFuriganaBtnVisibility() {
+    const isJa = document.getElementById('language').value === 'Japanese';
+    document.getElementById('furiganaBtn2').style.display = isJa ? 'inline-block' : 'none';
+    document.getElementById('furiganaBtn3').style.display = isJa ? 'inline-block' : 'none';
+  }
+
+  function toggleFurigana() {
+    showFurigana = !showFurigana;
+    const btnText = showFurigana ? "🌸 가나 감추기" : "🌸 가나 보기";
+    document.getElementById('furiganaBtn2').innerText = btnText;
+    document.getElementById('furiganaBtn3').innerText = btnText;
+    
+    document.querySelectorAll('.chat-box').forEach(box => {
+      box.classList.toggle('hide-furigana', !showFurigana);
+    });
+  }
 
   function setCreationMode(mode) {
     creationMode = mode;
@@ -271,6 +304,7 @@
   }
 
   function handleStep1Next() {
+    toggleJaFuriganaBtnVisibility();
     if (creationMode === 'ai') {
       requestMicPermissionAndStart();
     } else {
@@ -297,33 +331,34 @@
   }
 
   // 텍스트 드래그 감지 사전 팝업
-  document.addEventListener('mouseup', async function(e) {
+  document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     const selectedText = window.getSelection().toString().trim();
-    if (selectedText.length > 0 && selectedText.length < 30) {
+    if (selectedText.length > 0 && selectedText.length < 50) {
       showDictPopover(e.pageX, e.pageY, selectedText);
     }
   });
 
-  async function showDictPopover(x, y, word) {
+  function showDictPopover(x, y, word) {
     const pop = document.getElementById('dictPopover');
-    pop.style.left = (x - 50) + 'px';
-    pop.style.top = (y - 50) + 'px';
-    pop.style.display = 'block';
-    pop.innerText = `🔍 '${word}' 검색 중...`;
+    const content = document.getElementById('dictContent');
+    const lang = document.getElementById('language').value;
 
-    try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-      const data = await res.json();
-      if (data && data[0] && data[0].meanings[0]) {
-        const def = data[0].meanings[0].definitions[0].definition;
-        pop.innerHTML = `<strong>${word}</strong><br>${def}`;
-      } else {
-        pop.innerHTML = `<strong>${word}</strong><br>뜻을 찾을 수 없습니다.`;
-      }
-    } catch(err) {
-      pop.innerHTML = `<strong>${word}</strong><br>검색 실패`;
-    }
+    pop.style.left = Math.min(x - 20, window.innerWidth - 300) + 'px';
+    pop.style.top = (y - 80) + 'px';
+    pop.style.display = 'block';
+
+    let dictUrl = "";
+    if (lang === 'Japanese') dictUrl = `https://ja.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
+    else if (lang === 'Chinese') dictUrl = `https://zh.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
+    else if (lang === 'Spanish') dictUrl = `https://dict.naver.com/eskodict/#/search?query=${encodeURIComponent(word)}`;
+    else dictUrl = `https://en.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
+
+    content.innerHTML = `
+      <strong>🔍 '${word}'</strong>
+      <div style="margin-top:6px; color:#ddd;">사전에서 뜻 검색 준비 완료</div>
+      <a href="${dictUrl}" target="_blank" class="dict-link">네이버 사전에서 자세히 보기 ↗</a>
+    `;
   }
 
   function hideDictPopover() {
@@ -360,12 +395,18 @@
     showStep('step-2');
     document.getElementById('preview-box').innerHTML = '<div class="loading-spinner">✨ 맞춤 대본을 생성하고 있습니다...</div>';
 
+    let jaFuriganaInstruction = "";
+    if (config.language === 'Japanese') {
+      jaFuriganaInstruction = "For Japanese Kanji words, wrap them with HTML ruby tags for furigana, like <ruby>私<rt>わたし</rt></ruby>.";
+    }
+
     const prompt = `Create a realistic dialogue script based on the following requirements:
 - Language: ${config.language}
 - Context/Topic: ${config.context}
 - Sentence Complexity: ${config.length}
 - Number of Turns: ${config.turns} turns (1 turn = 1 AI response + 1 User response)
 - Additional Notes: ${config.customNotes}
+${jaFuriganaInstruction}
 
 CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text or markdown syntax.
 [
@@ -398,315 +439,4 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
         jsonString = data.choices[0].message.content;
       }
 
-      jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
-      scriptData = JSON.parse(jsonString);
-      renderPreview();
-    } catch (err) {
-      alert("API 오류: " + err.message);
-      showStep('step-1');
-    }
-  }
-
-  function renderPreview() {
-    var previewBox = document.getElementById('preview-box');
-    previewBox.innerHTML = '';
-
-    if (scriptData.length === 0) {
-      previewBox.innerHTML = '<p style="text-align:center; color:var(--text-sub);">작성된 대본이 없습니다. [✏️ 대본 수정/직접작성] 버튼을 눌러 대본을 입력해 보세요.</p>';
-      return;
-    }
-
-    scriptData.forEach(function(item) {
-      var div = document.createElement('div');
-      div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
-      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
-      div.onclick = function() {
-        if (!isDictMode) speakSingleSentence(item.text);
-      };
-      previewBox.appendChild(div);
-    });
-  }
-
-  // 대본 편집 모드 진입
-  function enableEditor() {
-    document.getElementById('preview-box').style.display = 'none';
-    document.getElementById('preview-action-btns').style.display = 'none';
-    document.getElementById('editor-box').style.display = 'block';
-
-    var rows = document.getElementById('editor-rows');
-    rows.innerHTML = '';
-
-    if (scriptData.length === 0) {
-      addEditorRow('AI', '');
-      addEditorRow('User', '');
-    } else {
-      scriptData.forEach(item => addEditorRow(item.role, item.text));
-    }
-  }
-
-  function addEditorRow(role = 'AI', text = '') {
-    var rows = document.getElementById('editor-rows');
-    var div = document.createElement('div');
-    div.className = 'edit-turn-item';
-    div.innerHTML = `
-      <select class="edit-role">
-        <option value="AI" ${role === 'AI' ? 'selected' : ''}>AI</option>
-        <option value="User" ${role === 'User' ? 'selected' : ''}>User</option>
-      </select>
-      <input type="text" class="edit-text" value="${text}" placeholder="대화 문장을 입력해 주세요.">
-      <button type="button" onclick="this.parentElement.remove()">삭제</button>
-    `;
-    rows.appendChild(div);
-  }
-
-  function saveEditedScript() {
-    var items = document.querySelectorAll('.edit-turn-item');
-    var newScript = [];
-    items.forEach(el => {
-      var role = el.querySelector('.edit-role').value;
-      var text = el.querySelector('.edit-text').value.trim();
-      if (text) newScript.push({ role, text });
-    });
-
-    if (newScript.length === 0) {
-      alert("최소 1개 이상의 대화 문장을 작성해 주세요.");
-      return;
-    }
-
-    scriptData = newScript;
-    document.getElementById('editor-box').style.display = 'none';
-    document.getElementById('preview-box').style.display = 'flex';
-    document.getElementById('preview-action-btns').style.display = 'flex';
-    renderPreview();
-  }
-
-  function startPractice() {
-    if (scriptData.length === 0) {
-      alert("진행할 대본이 없습니다. 대본을 먼저 작성해 주세요.");
-      return;
-    }
-    stopTTSOnly();
-    showStep('step-3');
-    var practiceBox = document.getElementById('practice-box');
-    practiceBox.innerHTML = '';
-
-    scriptData.forEach(function(item, index) {
-      var div = document.createElement('div');
-      div.id = 'practice-turn-' + index;
-      div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
-      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
-      div.onclick = function() {
-        if (!isDictMode) speakSingleSentence(item.text);
-      };
-      practiceBox.appendChild(div);
-    });
-
-    currentTurn = 0;
-    userRecordings = [];
-    processTurn();
-  }
-
-  function resetPractice() {
-    stopTTSOnly();
-    if (isRecording && recognition) {
-      try { recognition.stop(); } catch(e){}
-      isRecording = false;
-    }
-    currentTurn = 0;
-    userRecordings = [];
-    processTurn();
-  }
-
-  function processTurn() {
-    if (currentTurn >= scriptData.length) {
-      finishPractice();
-      return;
-    }
-
-    scriptData.forEach(function(_, idx) {
-      var el = document.getElementById('practice-turn-' + idx);
-      if (idx === currentTurn) {
-        el.classList.add('active-turn');
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        el.classList.remove('active-turn');
-      }
-    });
-
-    var turnData = scriptData[currentTurn];
-    var statusMsg = document.getElementById('status-msg');
-    var micBtn = document.getElementById('mic-btn');
-
-    if (turnData.role === 'AI') {
-      statusMsg.innerText = "🤖 AI가 말하는 중입니다...";
-      micBtn.disabled = true;
-      micBtn.innerText = "🎤 말하기 대기 중";
-      speakTTS(turnData.text, function() {
-        currentTurn++;
-        processTurn();
-      });
-    } else {
-      statusMsg.innerText = "🎤 당신의 차례입니다. 마이크 버튼을 누르고 말씀하세요.";
-      micBtn.disabled = false;
-      micBtn.innerText = "🎤 말하기 시작";
-    }
-  }
-
-  function speakTTS(text, onEndCallback) {
-    window.speechSynthesis.cancel();
-    var utterance = new SpeechSynthesisUtterance(text);
-    applyTTSConfig(utterance);
-    utterance.onend = function() { if (onEndCallback) onEndCallback(); };
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function speakSingleSentence(text) {
-    window.speechSynthesis.cancel();
-    var utterance = new SpeechSynthesisUtterance(text);
-    applyTTSConfig(utterance);
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function applyTTSConfig(utterance) {
-    var langSelect = document.getElementById('language').value;
-    var speedVal = parseFloat(document.getElementById('step3-speed').value);
-    utterance.rate = speedVal * 0.85;
-
-    if (langSelect === 'English') utterance.lang = 'en-US';
-    else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
-    else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
-    else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
-  }
-
-  function stopTTSOnly() {
-    window.speechSynthesis.cancel();
-  }
-
-  function replayCurrentTurn() {
-    if (scriptData[currentTurn]) {
-      speakSingleSentence(scriptData[currentTurn].text);
-    }
-  }
-
-  function initSTT() {
-    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 이용해 주세요.");
-      return false;
-    }
-
-    recognition = new SpeechRecognition();
-    var langSelect = document.getElementById('language').value;
-    if (langSelect === 'English') recognition.lang = 'en-US';
-    else if (langSelect === 'Japanese') recognition.lang = 'ja-JP';
-    else if (langSelect === 'Chinese') recognition.lang = 'zh-CN';
-    else if (langSelect === 'Spanish') recognition.lang = 'es-ES';
-
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = function() {
-      isRecording = true;
-      document.getElementById('mic-btn').innerText = "⏹️ 녹음 중지 및 제출";
-      document.getElementById('status-msg').innerText = "🎙️ 듣고 있습니다... 말씀하세요!";
-    };
-
-    recognition.onresult = function(event) {
-      var transcript = event.results[0][0].transcript;
-      userRecordings.push({
-        turnIndex: currentTurn,
-        expected: scriptData[currentTurn].text,
-        actual: transcript
-      });
-      
-      stopRecordingUI();
-      currentTurn++;
-      processTurn();
-    };
-
-    recognition.onerror = function(e) {
-      stopRecordingUI();
-      if (e.error === 'no-speech') {
-        document.getElementById('status-msg').innerText = "⚠️ 음성이 감지되지 않았습니다. 다시 버튼을 눌러주세요.";
-      } else {
-        document.getElementById('status-msg').innerText = "⚠️ 음성 인식 오류가 발생했습니다. 다시 눌러주세요.";
-      }
-    };
-
-    recognition.onend = function() {
-      stopRecordingUI();
-    };
-
-    return true;
-  }
-
-  function toggleRecord() {
-    stopTTSOnly();
-    if (!recognition) {
-      var ok = initSTT();
-      if (!ok) return;
-    }
-
-    if (!isRecording) {
-      try {
-        recognition.start();
-      } catch (err) {
-        initSTT();
-        setTimeout(function() { recognition.start(); }, 200);
-      }
-    } else {
-      try { recognition.stop(); } catch(e){}
-      stopRecordingUI();
-    }
-  }
-
-  function stopRecordingUI() {
-    isRecording = false;
-    var micBtn = document.getElementById('mic-btn');
-    if (scriptData[currentTurn] && scriptData[currentTurn].role === 'User') {
-      micBtn.innerText = "🎤 말하기 시작";
-      micBtn.disabled = false;
-    }
-  }
-
-  function finishPractice() {
-    showStep('step-4');
-    var diffBox = document.getElementById('diff-box');
-    diffBox.innerHTML = '';
-
-    userRecordings.forEach(function(rec) {
-      var row = document.createElement('div');
-      row.className = 'diff-row';
-      var diffHTML = computeDiffHTML(rec.expected, rec.actual);
-
-      row.innerHTML = '<div class="diff-box"><h4>📌 견본 대본</h4><div class="diff-text">' + rec.expected + '</div></div><div class="diff-box"><h4>🗣️ 학생 실제 발화 (대조)</h4><div class="diff-text">' + diffHTML + '</div></div>';
-      diffBox.appendChild(row);
-    });
-  }
-
-  function computeDiffHTML(expected, actual) {
-    var expWords = expected.split(" ");
-    var actWords = actual.split(" ");
-    var resultHTML = "";
-
-    actWords.forEach(function(word) {
-      var cleanWord = word.replace(/[.,?!]/g, "").toLowerCase();
-      var isMatch = expWords.some(function(w) { return w.replace(/[.,?!]/g, "").toLowerCase() === cleanWord; });
-
-      if (isMatch) {
-        resultHTML += word + ' ';
-      } else {
-        resultHTML += '<span class="ins">' + word + '</span> ';
-      }
-    });
-
-    return resultHTML;
-  }
-
-  function showStep(stepId) {
-    document.querySelectorAll('.step').forEach(function(el) { el.classList.remove('active'); });
-    document.getElementById(stepId).classList.add('active');
-  }
-</script>
-</body>
-</html>
+      jsonString = jsonString.replace(/```json/g, "").replace(/
