@@ -21,7 +21,7 @@
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; }
     .container { width: 100%; max-width: 800px; background: var(--card-bg); padding: 30px; border-radius: var(--border-radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); position: relative; }
-    h1, h2 { color: var(--text-main); margin-top: 0; }
+    h1, h2, h3, h4 { color: var(--text-main); margin-top: 0; }
     .subtitle { color: var(--text-sub); font-size: 0.95rem; margin-bottom: 25px; }
     .step { display: none; }
     .step.active { display: block; }
@@ -177,7 +177,7 @@
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
         <button type="button" id="dictBtn" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
-        <button type="button" id="furiganaBtn2" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 보기</button>
+        <button type="button" id="furiganaBtn2" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="speed-control-bar">
         <label for="step2-speed">🔊 음성 속도:</label>
@@ -216,7 +216,7 @@
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
         <button type="button" id="dictBtn3" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
-        <button type="button" id="furiganaBtn3" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 보기</button>
+        <button type="button" id="furiganaBtn3" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="speed-control-bar">
         <label for="step3-speed">🔊 음성 속도:</label>
@@ -275,20 +275,25 @@
   });
 
   function toggleJaFuriganaBtnVisibility() {
-    const isJa = document.getElementById('language').value === 'Japanese';
+    var isJa = document.getElementById('language').value === 'Japanese';
     document.getElementById('furiganaBtn2').style.display = isJa ? 'inline-block' : 'none';
     document.getElementById('furiganaBtn3').style.display = isJa ? 'inline-block' : 'none';
   }
 
   function toggleFurigana() {
     showFurigana = !showFurigana;
-    const btnText = showFurigana ? "🌸 가나 감추기" : "🌸 가나 보기";
+    var btnText = showFurigana ? "🌸 가나 감추기" : "🌸 가나 보기";
     document.getElementById('furiganaBtn2').innerText = btnText;
     document.getElementById('furiganaBtn3').innerText = btnText;
     
-    document.querySelectorAll('.chat-box').forEach(box => {
-      box.classList.toggle('hide-furigana', !showFurigana);
-    });
+    var boxes = document.querySelectorAll('.chat-box');
+    for (var i = 0; i < boxes.length; i++) {
+      if (showFurigana) {
+        boxes[i].classList.remove('hide-furigana');
+      } else {
+        boxes[i].classList.add('hide-furigana');
+      }
+    }
   }
 
   function setCreationMode(mode) {
@@ -298,7 +303,9 @@
     
     var aiSection = document.getElementById('ai-config-section');
     var inputs = aiSection.querySelectorAll('input, select, textarea');
-    inputs.forEach(el => el.disabled = (mode === 'manual'));
+    for (var i = 0; i < inputs.length; i++) {
+      inputs[i].disabled = (mode === 'manual');
+    }
 
     document.getElementById('next-btn').innerText = mode === 'ai' ? '맞춤 대본 생성하기' : '직접 대본 작성하러 가기';
   }
@@ -322,7 +329,7 @@
 
   function toggleDictMode() {
     isDictMode = !isDictMode;
-    const btnText = isDictMode ? "📖 사전 검색 모드: ON" : "📖 사전 검색 모드: OFF";
+    var btnText = isDictMode ? "📖 사전 검색 모드: ON" : "📖 사전 검색 모드: OFF";
     document.getElementById('dictBtn').innerText = btnText;
     document.getElementById('dictBtn3').innerText = btnText;
     document.getElementById('dictBtn').classList.toggle('active', isDictMode);
@@ -333,32 +340,28 @@
   // 텍스트 드래그 감지 사전 팝업
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
-    const selectedText = window.getSelection().toString().trim();
+    var selectedText = window.getSelection().toString().trim();
     if (selectedText.length > 0 && selectedText.length < 50) {
       showDictPopover(e.pageX, e.pageY, selectedText);
     }
   });
 
   function showDictPopover(x, y, word) {
-    const pop = document.getElementById('dictPopover');
-    const content = document.getElementById('dictContent');
-    const lang = document.getElementById('language').value;
+    var pop = document.getElementById('dictPopover');
+    var content = document.getElementById('dictContent');
+    var lang = document.getElementById('language').value;
 
     pop.style.left = Math.min(x - 20, window.innerWidth - 300) + 'px';
     pop.style.top = (y - 80) + 'px';
     pop.style.display = 'block';
 
-    let dictUrl = "";
-    if (lang === 'Japanese') dictUrl = `https://ja.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
-    else if (lang === 'Chinese') dictUrl = `https://zh.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
-    else if (lang === 'Spanish') dictUrl = `https://dict.naver.com/eskodict/#/search?query=${encodeURIComponent(word)}`;
-    else dictUrl = `https://en.dict.naver.com/#/search?query=${encodeURIComponent(word)}`;
+    var dictUrl = "";
+    if (lang === 'Japanese') dictUrl = "https://ja.dict.naver.com/#/search?query=" + encodeURIComponent(word);
+    else if (lang === 'Chinese') dictUrl = "https://zh.dict.naver.com/#/search?query=" + encodeURIComponent(word);
+    else if (lang === 'Spanish') dictUrl = "https://dict.naver.com/eskodict/#/search?query=" + encodeURIComponent(word);
+    else dictUrl = "https://en.dict.naver.com/#/search?query=" + encodeURIComponent(word);
 
-    content.innerHTML = `
-      <strong>🔍 '${word}'</strong>
-      <div style="margin-top:6px; color:#ddd;">사전에서 뜻 검색 준비 완료</div>
-      <a href="${dictUrl}" target="_blank" class="dict-link">네이버 사전에서 자세히 보기 ↗</a>
-    `;
+    content.innerHTML = "<strong>🔍 '" + word + "'</strong><div style='margin-top:6px; color:#ddd;'>사전에서 뜻 검색 준비 완료</div><a href='" + dictUrl + "' target='_blank' class='dict-link'>네이버 사전에서 자세히 보기 ↗</a>";
   }
 
   function hideDictPopover() {
@@ -374,7 +377,7 @@
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(function(track) { track.stop(); });
       generateScript();
     } catch (err) {
       alert("마이크 권한 허용이 필요합니다.");
@@ -395,29 +398,25 @@
     showStep('step-2');
     document.getElementById('preview-box').innerHTML = '<div class="loading-spinner">✨ 맞춤 대본을 생성하고 있습니다...</div>';
 
-    let jaFuriganaInstruction = "";
+    var jaFuriganaInstruction = "";
     if (config.language === 'Japanese') {
       jaFuriganaInstruction = "For Japanese Kanji words, wrap them with HTML ruby tags for furigana, like <ruby>私<rt>わたし</rt></ruby>.";
     }
 
-    const prompt = `Create a realistic dialogue script based on the following requirements:
-- Language: ${config.language}
-- Context/Topic: ${config.context}
-- Sentence Complexity: ${config.length}
-- Number of Turns: ${config.turns} turns (1 turn = 1 AI response + 1 User response)
-- Additional Notes: ${config.customNotes}
-${jaFuriganaInstruction}
-
-CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text or markdown syntax.
-[
-  {"role": "AI", "text": "..."},
-  {"role": "User", "text": "..."}
-]`;
+    var prompt = "Create a realistic dialogue script based on the following requirements:\n" +
+      "- Language: " + config.language + "\n" +
+      "- Context/Topic: " + config.context + "\n" +
+      "- Sentence Complexity: " + config.length + "\n" +
+      "- Number of Turns: " + config.turns + " turns (1 turn = 1 AI response + 1 User response)\n" +
+      "- Additional Notes: " + config.customNotes + "\n" +
+      jaFuriganaInstruction + "\n\n" +
+      "CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text or markdown syntax.\n" +
+      "[\n  {\"role\": \"AI\", \"text\": \"...\"},\n  {\"role\": \"User\", \"text\": \"...\"}\n]";
 
     try {
-      let jsonString = "";
+      var jsonString = "";
       if (config.provider === 'gemini') {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${config.apiKey}`, {
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + config.apiKey, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -426,9 +425,9 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
         if (data.error) throw new Error(data.error.message);
         jsonString = data.candidates[0].content.parts[0].text;
       } else {
-        const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': "Bearer " + config.apiKey },
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [{ role: "system", content: "You output JSON arrays only." }, { role: "user", content: prompt }]
@@ -484,32 +483,32 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
       addEditorRow('AI', '');
       addEditorRow('User', '');
     } else {
-      scriptData.forEach(item => addEditorRow(item.role, item.text));
+      scriptData.forEach(function(item) { addEditorRow(item.role, item.text); });
     }
   }
 
-  function addEditorRow(role = 'AI', text = '') {
+  function addEditorRow(role, text) {
+    role = role || 'AI';
+    text = text || '';
     var rows = document.getElementById('editor-rows');
     var div = document.createElement('div');
     div.className = 'edit-turn-item';
-    div.innerHTML = `
-      <select class="edit-role">
-        <option value="AI" ${role === 'AI' ? 'selected' : ''}>AI</option>
-        <option value="User" ${role === 'User' ? 'selected' : ''}>User</option>
-      </select>
-      <input type="text" class="edit-text" value="${text}" placeholder="대화 문장을 입력해 주세요.">
-      <button type="button" onclick="this.parentElement.remove()">삭제</button>
-    `;
+    div.innerHTML = '<select class="edit-role">' +
+      '<option value="AI" ' + (role === 'AI' ? 'selected' : '') + '>AI</option>' +
+      '<option value="User" ' + (role === 'User' ? 'selected' : '') + '>User</option>' +
+      '</select>' +
+      '<input type="text" class="edit-text" value="' + text.replace(/"/g, '&quot;') + '" placeholder="대화 문장을 입력해 주세요.">' +
+      '<button type="button" onclick="this.parentElement.remove()">삭제</button>';
     rows.appendChild(div);
   }
 
   function saveEditedScript() {
     var items = document.querySelectorAll('.edit-turn-item');
     var newScript = [];
-    items.forEach(el => {
+    items.forEach(function(el) {
       var role = el.querySelector('.edit-role').value;
       var text = el.querySelector('.edit-text').value.trim();
-      if (text) newScript.push({ role, text });
+      if (text) newScript.push({ role: role, text: text });
     });
 
     if (newScript.length === 0) {
@@ -748,7 +747,10 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
   }
 
   function showStep(stepId) {
-    document.querySelectorAll('.step').forEach(function(el) { el.classList.remove('active'); });
+    var steps = document.querySelectorAll('.step');
+    for (var i = 0; i < steps.length; i++) {
+      steps[i].classList.remove('active');
+    }
     document.getElementById(stepId).classList.add('active');
   }
 </script>
