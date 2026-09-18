@@ -81,7 +81,7 @@
       <div class="form-group">
         <label>사용할 AI 모델</label>
         <select id="apiProvider">
-          <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+          <option value="gemini">Google Gemini (gemini-3.6-flash)</option>
           <option value="openai">OpenAI (gpt-4o-mini)</option>
         </select>
       </div>
@@ -266,7 +266,7 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
     try {
       let jsonString = "";
       if (config.provider === 'gemini') {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.apiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${config.apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
