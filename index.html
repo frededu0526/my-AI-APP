@@ -439,4 +439,318 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
         jsonString = data.choices[0].message.content;
       }
 
-      jsonString = jsonString.replace(/```json/g, "").replace(/
+      jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
+      scriptData = JSON.parse(jsonString);
+      renderPreview();
+    } catch (err) {
+      alert("API 오류: " + err.message);
+      showStep('step-1');
+    }
+  }
+
+  function cleanTextForSpeech(text) {
+    return text.replace(/<rt>.*?<\/rt>/g, '').replace(/<[^>]+>/g, '');
+  }
+
+  function renderPreview() {
+    var previewBox = document.getElementById('preview-box');
+    previewBox.innerHTML = '';
+
+    if (scriptData.length === 0) {
+      previewBox.innerHTML = '<p style="text-align:center; color:var(--text-sub);">작성된 대본이 없습니다. [✏️ 대본 수정/직접작성] 버튼을 눌러 대본을 입력해 보세요.</p>';
+      return;
+    }
+
+    scriptData.forEach(function(item) {
+      var div = document.createElement('div');
+      div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
+      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
+      div.onclick = function() {
+        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text));
+      };
+      previewBox.appendChild(div);
+    });
+  }
+
+  function enableEditor() {
+    document.getElementById('preview-box').style.display = 'none';
+    document.getElementById('preview-action-btns').style.display = 'none';
+    document.getElementById('editor-box').style.display = 'block';
+
+    var rows = document.getElementById('editor-rows');
+    rows.innerHTML = '';
+
+    if (scriptData.length === 0) {
+      addEditorRow('AI', '');
+      addEditorRow('User', '');
+    } else {
+      scriptData.forEach(item => addEditorRow(item.role, item.text));
+    }
+  }
+
+  function addEditorRow(role = 'AI', text = '') {
+    var rows = document.getElementById('editor-rows');
+    var div = document.createElement('div');
+    div.className = 'edit-turn-item';
+    div.innerHTML = `
+      <select class="edit-role">
+        <option value="AI" ${role === 'AI' ? 'selected' : ''}>AI</option>
+        <option value="User" ${role === 'User' ? 'selected' : ''}>User</option>
+      </select>
+      <input type="text" class="edit-text" value="${text}" placeholder="대화 문장을 입력해 주세요.">
+      <button type="button" onclick="this.parentElement.remove()">삭제</button>
+    `;
+    rows.appendChild(div);
+  }
+
+  function saveEditedScript() {
+    var items = document.querySelectorAll('.edit-turn-item');
+    var newScript = [];
+    items.forEach(el => {
+      var role = el.querySelector('.edit-role').value;
+      var text = el.querySelector('.edit-text').value.trim();
+      if (text) newScript.push({ role, text });
+    });
+
+    if (newScript.length === 0) {
+      alert("최소 1개 이상의 대화 문장을 작성해 주세요.");
+      return;
+    }
+
+    scriptData = newScript;
+    document.getElementById('editor-box').style.display = 'none';
+    document.getElementById('preview-box').style.display = 'flex';
+    document.getElementById('preview-action-btns').style.display = 'flex';
+    renderPreview();
+  }
+
+  function startPractice() {
+    if (scriptData.length === 0) {
+      alert("진행할 대본이 없습니다. 대본을 먼저 작성해 주세요.");
+      return;
+    }
+    stopTTSOnly();
+    showStep('step-3');
+    var practiceBox = document.getElementById('practice-box');
+    practiceBox.innerHTML = '';
+
+    scriptData.forEach(function(item, index) {
+      var div = document.createElement('div');
+      div.id = 'practice-turn-' + index;
+      div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
+      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
+      div.onclick = function() {
+        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text));
+      };
+      practiceBox.appendChild(div);
+    });
+
+    currentTurn = 0;
+    userRecordings = [];
+    processTurn();
+  }
+
+  function resetPractice() {
+    stopTTSOnly();
+    if (isRecording && recognition) {
+      try { recognition.stop(); } catch(e){}
+      isRecording = false;
+    }
+    currentTurn = 0;
+    userRecordings = [];
+    processTurn();
+  }
+
+  function processTurn() {
+    if (currentTurn >= scriptData.length) {
+      finishPractice();
+      return;
+    }
+
+    scriptData.forEach(function(_, idx) {
+      var el = document.getElementById('practice-turn-' + idx);
+      if (idx === currentTurn) {
+        el.classList.add('active-turn');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        el.classList.remove('active-turn');
+      }
+    });
+
+    var turnData = scriptData[currentTurn];
+    var statusMsg = document.getElementById('status-msg');
+    var micBtn = document.getElementById('mic-btn');
+
+    if (turnData.role === 'AI') {
+      statusMsg.innerText = "🤖 AI가 말하는 중입니다...";
+      micBtn.disabled = true;
+      micBtn.innerText = "🎤 말하기 대기 중";
+      speakTTS(cleanTextForSpeech(turnData.text), function() {
+        currentTurn++;
+        processTurn();
+      });
+    } else {
+      statusMsg.innerText = "🎤 당신의 차례입니다. 마이크 버튼을 누르고 말씀하세요.";
+      micBtn.disabled = false;
+      micBtn.innerText = "🎤 말하기 시작";
+    }
+  }
+
+  function speakTTS(text, onEndCallback) {
+    window.speechSynthesis.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    applyTTSConfig(utterance);
+    utterance.onend = function() { if (onEndCallback) onEndCallback(); };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function speakSingleSentence(text) {
+    window.speechSynthesis.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    applyTTSConfig(utterance);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function applyTTSConfig(utterance) {
+    var langSelect = document.getElementById('language').value;
+    var speedVal = parseFloat(document.getElementById('step3-speed').value);
+    utterance.rate = speedVal * 0.85;
+
+    if (langSelect === 'English') utterance.lang = 'en-US';
+    else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
+    else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
+    else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
+  }
+
+  function stopTTSOnly() {
+    window.speechSynthesis.cancel();
+  }
+
+  function replayCurrentTurn() {
+    if (scriptData[currentTurn]) {
+      speakSingleSentence(cleanTextForSpeech(scriptData[currentTurn].text));
+    }
+  }
+
+  function initSTT() {
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 이용해 주세요.");
+      return false;
+    }
+
+    recognition = new SpeechRecognition();
+    var langSelect = document.getElementById('language').value;
+    if (langSelect === 'English') recognition.lang = 'en-US';
+    else if (langSelect === 'Japanese') recognition.lang = 'ja-JP';
+    else if (langSelect === 'Chinese') recognition.lang = 'zh-CN';
+    else if (langSelect === 'Spanish') recognition.lang = 'es-ES';
+
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = function() {
+      isRecording = true;
+      document.getElementById('mic-btn').innerText = "⏹️ 녹음 중지 및 제출";
+      document.getElementById('status-msg').innerText = "🎙️ 듣고 있습니다... 말씀하세요!";
+    };
+
+    recognition.onresult = function(event) {
+      var transcript = event.results[0][0].transcript;
+      userRecordings.push({
+        turnIndex: currentTurn,
+        expected: cleanTextForSpeech(scriptData[currentTurn].text),
+        actual: transcript
+      });
+      
+      stopRecordingUI();
+      currentTurn++;
+      processTurn();
+    };
+
+    recognition.onerror = function(e) {
+      stopRecordingUI();
+      if (e.error === 'no-speech') {
+        document.getElementById('status-msg').innerText = "⚠️ 음성이 감지되지 않았습니다. 다시 버튼을 눌러주세요.";
+      } else {
+        document.getElementById('status-msg').innerText = "⚠️ 음성 인식 오류가 발생했습니다. 다시 눌러주세요.";
+      }
+    };
+
+    recognition.onend = function() {
+      stopRecordingUI();
+    };
+
+    return true;
+  }
+
+  function toggleRecord() {
+    stopTTSOnly();
+    if (!recognition) {
+      var ok = initSTT();
+      if (!ok) return;
+    }
+
+    if (!isRecording) {
+      try {
+        recognition.start();
+      } catch (err) {
+        initSTT();
+        setTimeout(function() { recognition.start(); }, 200);
+      }
+    } else {
+      try { recognition.stop(); } catch(e){}
+      stopRecordingUI();
+    }
+  }
+
+  function stopRecordingUI() {
+    isRecording = false;
+    var micBtn = document.getElementById('mic-btn');
+    if (scriptData[currentTurn] && scriptData[currentTurn].role === 'User') {
+      micBtn.innerText = "🎤 말하기 시작";
+      micBtn.disabled = false;
+    }
+  }
+
+  function finishPractice() {
+    showStep('step-4');
+    var diffBox = document.getElementById('diff-box');
+    diffBox.innerHTML = '';
+
+    userRecordings.forEach(function(rec) {
+      var row = document.createElement('div');
+      row.className = 'diff-row';
+      var diffHTML = computeDiffHTML(rec.expected, rec.actual);
+
+      row.innerHTML = '<div class="diff-box"><h4>📌 견본 대본</h4><div class="diff-text">' + rec.expected + '</div></div><div class="diff-box"><h4>🗣️ 학생 실제 발화 (대조)</h4><div class="diff-text">' + diffHTML + '</div></div>';
+      diffBox.appendChild(row);
+    });
+  }
+
+  function computeDiffHTML(expected, actual) {
+    var expWords = expected.split(" ");
+    var actWords = actual.split(" ");
+    var resultHTML = "";
+
+    actWords.forEach(function(word) {
+      var cleanWord = word.replace(/[.,?!]/g, "").toLowerCase();
+      var isMatch = expWords.some(function(w) { return w.replace(/[.,?!]/g, "").toLowerCase() === cleanWord; });
+
+      if (isMatch) {
+        resultHTML += word + ' ';
+      } else {
+        resultHTML += '<span class="ins">' + word + '</span> ';
+      }
+    });
+
+    return resultHTML;
+  }
+
+  function showStep(stepId) {
+    document.querySelectorAll('.step').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById(stepId).classList.add('active');
+  }
+</script>
+</body>
+</html>
