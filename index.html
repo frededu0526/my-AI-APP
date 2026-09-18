@@ -20,7 +20,7 @@
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 800px; background: var(--card-bg); padding: 30px; border-radius: var(--border-radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    .container { width: 100%; max-width: 800px; background: var(--card-bg); padding: 30px; border-radius: var(--border-radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); position: relative; }
     h1, h2 { color: var(--text-main); margin-top: 0; }
     .subtitle { color: var(--text-sub); font-size: 0.95rem; margin-bottom: 25px; }
     .step { display: none; }
@@ -34,7 +34,6 @@
     
     .key-info { margin-top: 6px; font-size: 0.8rem; color: var(--text-sub); }
     .key-info a { color: var(--primary); font-weight: 600; text-decoration: none; }
-    .key-info a:hover { text-decoration: underline; }
 
     button { background: var(--primary); color: white; border: none; padding: 12px 24px; font-size: 1rem; font-weight: 600; border-radius: 8px; cursor: pointer; transition: 0.2s; width: 100%; margin-top: 10px; }
     button:hover { background: var(--primary-hover); }
@@ -43,6 +42,12 @@
     .btn-secondary:hover { background: #5a6268; }
     .btn-warning { background: #e67e22; }
     .btn-warning:hover { background: #d35400; }
+    .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+    .btn-outline.active { background: var(--primary); color: white; }
+
+    .mode-selector { display: flex; gap: 15px; margin-bottom: 20px; background: #e9ecef; padding: 8px; border-radius: 10px; }
+    .mode-option { flex: 1; text-align: center; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; background: transparent; transition: 0.2s; }
+    .mode-option.active { background: white; color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
     .chat-box { display: flex; flex-direction: column; gap: 15px; margin: 20px 0; max-height: 450px; overflow-y: auto; padding-right: 5px; }
     .turn-card { padding: 15px; border-radius: var(--border-radius); border: 2px solid transparent; transition: all 0.3s ease; cursor: pointer; position: relative; }
@@ -52,7 +57,7 @@
     .turn-card.active-turn { background-color: var(--active-highlight); border-color: #ffe082; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .speaker-label { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin-bottom: 4px; display: flex; justify-content: space-between; }
     .script-text { font-size: 1.05rem; line-height: 1.5; }
-    
+
     .control-panel { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; }
     .audio-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .audio-controls button { margin-top: 0; font-size: 0.85rem; padding: 10px 5px; }
@@ -63,97 +68,132 @@
     .diff-text { font-size: 0.95rem; line-height: 1.6; }
     .ins { background-color: var(--diff-added); padding: 2px 4px; border-radius: 4px; }
     .loading-spinner { text-align: center; padding: 40px; color: var(--text-sub); }
-    
-    .speed-control-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 15px; background: #f1f3f5; padding: 8px 15px; border-radius: 8px; }
-    .speed-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; color: var(--text-main); }
+
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 8px 15px; border-radius: 8px; }
+    .speed-control-bar { display: flex; align-items: center; gap: 8px; }
+    .speed-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; }
     .speed-control-bar select { width: auto; padding: 4px 8px; font-size: 0.85rem; }
+
+    /* 단어 사전 팝업 */
+    .dict-popover { position: absolute; background: #333; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; z-index: 1000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-width: 250px; }
+    .dict-popover::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border-width: 5px 5px 0; border-style: solid; border-color: #333 transparent; display: block; width: 0; }
+
+    /* 대본 에디터 스타일 */
+    .edit-turn-item { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .edit-turn-item select { width: 100px; }
+    .edit-turn-item input { flex: 1; }
+    .edit-turn-item button { width: auto; margin-top: 0; padding: 8px 12px; background: #dc3545; }
   </style>
 </head>
 <body>
 
 <div class="container">
+  <!-- 사전 팝업창 -->
+  <div id="dictPopover" class="dict-popover"></div>
+
   <!-- 1단계: 대본 생성 설정 -->
   <div id="step-1" class="step active">
     <h1>🌱 AI 대화 연습 설정</h1>
-    <p class="subtitle">원하는 대화 상황과 난이도를 설정해 주세요.</p>
+    <p class="subtitle">대본을 생성할 방법과 환경을 선택해 주세요.</p>
     
-    <div class="form-row">
-      <div class="form-group">
-        <label>사용할 AI 모델</label>
-        <select id="apiProvider">
-          <option value="gemini">Google Gemini (gemini-3.6-flash)</option>
-          <option value="openai">OpenAI (gpt-4o-mini)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>API 키 입력</label>
-        <input type="text" id="apiKey" placeholder="API Key를 입력하세요">
-        <div class="key-info">
-          🔑 키가 없으신가요? 
-          <a id="keyLink" href="https://aistudio.google.com/" target="_blank">Google API Key 발급받기 ↗</a>
+    <div class="mode-selector">
+      <div id="mode-ai" class="mode-option active" onclick="setCreationMode('ai')">🤖 AI로 자동 생성하기</div>
+      <div id="mode-manual" class="mode-option" onclick="setCreationMode('manual')">✏️ 대본 직접 입력하기</div>
+    </div>
+
+    <div id="ai-config-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label>사용할 AI 모델</label>
+          <select id="apiProvider">
+            <option value="gemini">Google Gemini (gemini-3.6-flash)</option>
+            <option value="openai">OpenAI (gpt-4o-mini)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>API 키 입력</label>
+          <input type="text" id="apiKey" placeholder="API Key를 입력하세요">
+          <div class="key-info">
+            🔑 <a id="keyLink" href="https://aistudio.google.com/" target="_blank">Google API Key 발급받기 ↗</a>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label>학습 언어</label>
-        <select id="language">
-          <option value="English">영어 (English)</option>
-          <option value="Japanese">일본어 (Japanese)</option>
-          <option value="Chinese">중국어 (Chinese)</option>
-          <option value="Spanish">스페인어 (Spanish)</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>학습 언어</label>
+          <select id="language">
+            <option value="English">영어 (English)</option>
+            <option value="Japanese">일본어 (Japanese)</option>
+            <option value="Chinese">중국어 (Chinese)</option>
+            <option value="Spanish">스페인어 (Spanish)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>문장 길이</label>
+          <select id="length">
+            <option value="short">짧은 문장</option>
+            <option value="medium" selected>보통 문장</option>
+            <option value="long">긴 문장</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>대화 턴 수</label>
+          <select id="turns">
+            <option value="3" selected>3 턴</option>
+            <option value="5">5 턴</option>
+          </select>
+        </div>
       </div>
+
       <div class="form-group">
-        <label>문장 길이</label>
-        <select id="length">
-          <option value="short">짧은 문장</option>
-          <option value="medium" selected>보통 문장</option>
-          <option value="long">긴 문장</option>
-        </select>
+        <label>주제 및 상황</label>
+        <input type="text" id="context" placeholder="예: 카페에서 음료 주문하기">
       </div>
+
       <div class="form-group">
-        <label>대화 턴 수</label>
-        <select id="turns">
-          <option value="3" selected>3 턴</option>
-          <option value="5">5 턴</option>
-        </select>
+        <label>기타 추가 요청사항</label>
+        <textarea id="customNotes" rows="2" placeholder="예: 비즈니스 어휘 위주로 구성해 줘"></textarea>
       </div>
     </div>
 
-    <div class="form-group">
-      <label>주제 및 상황</label>
-      <input type="text" id="context" placeholder="예: 카페에서 음료 주문하기">
-    </div>
-
-    <div class="form-group">
-      <label>기타 추가 요청사항</label>
-      <textarea id="customNotes" rows="2" placeholder="예: 비즈니스 어휘 위주로 구성해 줘"></textarea>
-    </div>
-
-    <button type="button" onclick="requestMicPermissionAndStart()">맞춤 대본 생성하기</button>
+    <button type="button" id="next-btn" onclick="handleStep1Next()">다음 단계로 진행하기</button>
   </div>
 
-  <!-- 2단계: 미리보기 -->
+  <!-- 2단계: 미리보기 및 편집 -->
   <div id="step-2" class="step">
     <h2>📜 맞춤 대화 대본 미리보기</h2>
-    <p class="subtitle">생성된 대본을 클릭하여 들어보거나, 미리 읽은 후 음성 대화를 시작해 보세요.</p>
+    <p class="subtitle">생성된 대본을 확인하거나 수정 후 음성 대화를 시작해 보세요.</p>
     
-    <div class="speed-control-bar">
-      <label for="step2-speed">🔊 AI 음성 속도:</label>
-      <select id="step2-speed" onchange="syncSpeedOptions(this.value)">
-        <option value="1.0">1.0배속</option>
-        <option value="0.9">0.9배속</option>
-        <option value="0.8">0.8배속</option>
-        <option value="0.7" selected>0.7배속</option>
-        <option value="0.6">0.6배속</option>
-        <option value="0.5">0.5배속</option>
-      </select>
+    <div class="top-bar">
+      <button type="button" id="dictBtn" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+      <div class="speed-control-bar">
+        <label for="step2-speed">🔊 음성 속도:</label>
+        <select id="step2-speed" onchange="syncSpeedOptions(this.value)">
+          <option value="1.0">1.0배속</option>
+          <option value="0.9">0.9배속</option>
+          <option value="0.8">0.8배속</option>
+          <option value="0.7" selected>0.7배속</option>
+          <option value="0.6">0.6배속</option>
+          <option value="0.5">0.5배속</option>
+        </select>
+      </div>
     </div>
 
     <div id="preview-box" class="chat-box"></div>
-    <button type="button" onclick="startPractice()">음성 대화 시작하기</button>
+
+    <!-- 대본 편집기 영역 -->
+    <div id="editor-box" style="display:none; margin: 20px 0;">
+      <h3>✏️ 대본 직접 작성/수정</h3>
+      <div id="editor-rows"></div>
+      <button type="button" class="btn-secondary" style="width:auto;" onclick="addEditorRow()">+ 대화 추가하기</button>
+      <button type="button" style="margin-top:15px;" onclick="saveEditedScript()">저장 완료 및 반영</button>
+    </div>
+
+    <div id="preview-action-btns" class="form-row" style="margin-top:15px;">
+      <button type="button" class="btn-secondary" onclick="enableEditor()">✏️ 대본 수정/직접작성</button>
+      <button type="button" onclick="startPractice()">🎙️ 음성 대화 시작하기</button>
+    </div>
   </div>
 
   <!-- 3단계: 음성 대화 -->
@@ -161,16 +201,19 @@
     <h2>🎙️ 대화 진행 중</h2>
     <p class="subtitle">카드 문장을 클릭하면 언제든 다시 들을 수 있습니다.</p>
     
-    <div class="speed-control-bar">
-      <label for="step3-speed">🔊 AI 음성 속도:</label>
-      <select id="step3-speed" onchange="syncSpeedOptions(this.value)">
-        <option value="1.0">1.0배속</option>
-        <option value="0.9">0.9배속</option>
-        <option value="0.8">0.8배속</option>
-        <option value="0.7" selected>0.7배속</option>
-        <option value="0.6">0.6배속</option>
-        <option value="0.5">0.5배속</option>
-      </select>
+    <div class="top-bar">
+      <button type="button" id="dictBtn3" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+      <div class="speed-control-bar">
+        <label for="step3-speed">🔊 음성 속도:</label>
+        <select id="step3-speed" onchange="syncSpeedOptions(this.value)">
+          <option value="1.0">1.0배속</option>
+          <option value="0.9">0.9배속</option>
+          <option value="0.8">0.8배속</option>
+          <option value="0.7" selected>0.7배속</option>
+          <option value="0.6">0.6배속</option>
+          <option value="0.5">0.5배속</option>
+        </select>
+      </div>
     </div>
 
     <div id="practice-box" class="chat-box"></div>
@@ -196,11 +239,13 @@
 </div>
 
 <script>
+  var creationMode = 'ai'; // 'ai' 또는 'manual'
   var scriptData = [];
   var currentTurn = 0;
   var userRecordings = [];
   var recognition = null;
   var isRecording = false;
+  var isDictMode = false;
 
   document.getElementById('apiProvider').addEventListener('change', function(e) {
     var link = document.getElementById('keyLink');
@@ -213,12 +258,78 @@
     }
   });
 
+  function setCreationMode(mode) {
+    creationMode = mode;
+    document.getElementById('mode-ai').classList.toggle('active', mode === 'ai');
+    document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
+    
+    var aiSection = document.getElementById('ai-config-section');
+    var inputs = aiSection.querySelectorAll('input, select, textarea');
+    inputs.forEach(el => el.disabled = (mode === 'manual'));
+
+    document.getElementById('next-btn').innerText = mode === 'ai' ? '맞춤 대본 생성하기' : '직접 대본 작성하러 가기';
+  }
+
+  function handleStep1Next() {
+    if (creationMode === 'ai') {
+      requestMicPermissionAndStart();
+    } else {
+      scriptData = [];
+      showStep('step-2');
+      renderPreview();
+      enableEditor();
+    }
+  }
+
   function syncSpeedOptions(val) {
     document.getElementById('step2-speed').value = val;
     document.getElementById('step3-speed').value = val;
   }
 
-  // 브라우저 마이크 권한 요청 팝업을 직접 호출하는 함수
+  function toggleDictMode() {
+    isDictMode = !isDictMode;
+    const btnText = isDictMode ? "📖 사전 검색 모드: ON" : "📖 사전 검색 모드: OFF";
+    document.getElementById('dictBtn').innerText = btnText;
+    document.getElementById('dictBtn3').innerText = btnText;
+    document.getElementById('dictBtn').classList.toggle('active', isDictMode);
+    document.getElementById('dictBtn3').classList.toggle('active', isDictMode);
+    if (!isDictMode) hideDictPopover();
+  }
+
+  // 텍스트 드래그 감지 사전 팝업
+  document.addEventListener('mouseup', async function(e) {
+    if (!isDictMode) return;
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText.length > 0 && selectedText.length < 30) {
+      showDictPopover(e.pageX, e.pageY, selectedText);
+    }
+  });
+
+  async function showDictPopover(x, y, word) {
+    const pop = document.getElementById('dictPopover');
+    pop.style.left = (x - 50) + 'px';
+    pop.style.top = (y - 50) + 'px';
+    pop.style.display = 'block';
+    pop.innerText = `🔍 '${word}' 검색 중...`;
+
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      const data = await res.json();
+      if (data && data[0] && data[0].meanings[0]) {
+        const def = data[0].meanings[0].definitions[0].definition;
+        pop.innerHTML = `<strong>${word}</strong><br>${def}`;
+      } else {
+        pop.innerHTML = `<strong>${word}</strong><br>뜻을 찾을 수 없습니다.`;
+      }
+    } catch(err) {
+      pop.innerHTML = `<strong>${word}</strong><br>검색 실패`;
+    }
+  }
+
+  function hideDictPopover() {
+    document.getElementById('dictPopover').style.display = 'none';
+  }
+
   async function requestMicPermissionAndStart() {
     var apiKeyVal = document.getElementById('apiKey').value.trim();
     if (!apiKeyVal) {
@@ -227,12 +338,11 @@
     }
 
     try {
-      // 핵심: 브라우저에 마이크 허용 팝업 요청
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // 권한 확인 후 스트림 닫기
+      stream.getTracks().forEach(track => track.stop());
       generateScript();
     } catch (err) {
-      alert("마이크 사용 권한을 '허용'하셔야 음성 대화를 진행하실 수 있습니다.");
+      alert("마이크 권한 허용이 필요합니다.");
     }
   }
 
@@ -277,10 +387,7 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
       } else {
         const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [{ role: "system", content: "You output JSON arrays only." }, { role: "user", content: prompt }]
@@ -292,33 +399,92 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
       }
 
       jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
-      onScriptGenerated(jsonString);
+      scriptData = JSON.parse(jsonString);
+      renderPreview();
     } catch (err) {
       alert("API 오류: " + err.message);
       showStep('step-1');
     }
   }
 
-  function onScriptGenerated(jsonString) {
-    try {
-      scriptData = JSON.parse(jsonString);
-      var previewBox = document.getElementById('preview-box');
-      previewBox.innerHTML = '';
+  function renderPreview() {
+    var previewBox = document.getElementById('preview-box');
+    previewBox.innerHTML = '';
 
-      scriptData.forEach(function(item) {
-        var div = document.createElement('div');
-        div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
-        div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
-        div.onclick = function() { speakSingleSentence(item.text); };
-        previewBox.appendChild(div);
-      });
-    } catch (e) {
-      alert("대본 해석 중 오류가 발생했습니다.");
-      showStep('step-1');
+    if (scriptData.length === 0) {
+      previewBox.innerHTML = '<p style="text-align:center; color:var(--text-sub);">작성된 대본이 없습니다. [✏️ 대본 수정/직접작성] 버튼을 눌러 대본을 입력해 보세요.</p>';
+      return;
+    }
+
+    scriptData.forEach(function(item) {
+      var div = document.createElement('div');
+      div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
+      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
+      div.onclick = function() {
+        if (!isDictMode) speakSingleSentence(item.text);
+      };
+      previewBox.appendChild(div);
+    });
+  }
+
+  // 대본 편집 모드 진입
+  function enableEditor() {
+    document.getElementById('preview-box').style.display = 'none';
+    document.getElementById('preview-action-btns').style.display = 'none';
+    document.getElementById('editor-box').style.display = 'block';
+
+    var rows = document.getElementById('editor-rows');
+    rows.innerHTML = '';
+
+    if (scriptData.length === 0) {
+      addEditorRow('AI', '');
+      addEditorRow('User', '');
+    } else {
+      scriptData.forEach(item => addEditorRow(item.role, item.text));
     }
   }
 
+  function addEditorRow(role = 'AI', text = '') {
+    var rows = document.getElementById('editor-rows');
+    var div = document.createElement('div');
+    div.className = 'edit-turn-item';
+    div.innerHTML = `
+      <select class="edit-role">
+        <option value="AI" ${role === 'AI' ? 'selected' : ''}>AI</option>
+        <option value="User" ${role === 'User' ? 'selected' : ''}>User</option>
+      </select>
+      <input type="text" class="edit-text" value="${text}" placeholder="대화 문장을 입력해 주세요.">
+      <button type="button" onclick="this.parentElement.remove()">삭제</button>
+    `;
+    rows.appendChild(div);
+  }
+
+  function saveEditedScript() {
+    var items = document.querySelectorAll('.edit-turn-item');
+    var newScript = [];
+    items.forEach(el => {
+      var role = el.querySelector('.edit-role').value;
+      var text = el.querySelector('.edit-text').value.trim();
+      if (text) newScript.push({ role, text });
+    });
+
+    if (newScript.length === 0) {
+      alert("최소 1개 이상의 대화 문장을 작성해 주세요.");
+      return;
+    }
+
+    scriptData = newScript;
+    document.getElementById('editor-box').style.display = 'none';
+    document.getElementById('preview-box').style.display = 'flex';
+    document.getElementById('preview-action-btns').style.display = 'flex';
+    renderPreview();
+  }
+
   function startPractice() {
+    if (scriptData.length === 0) {
+      alert("진행할 대본이 없습니다. 대본을 먼저 작성해 주세요.");
+      return;
+    }
     stopTTSOnly();
     showStep('step-3');
     var practiceBox = document.getElementById('practice-box');
@@ -329,7 +495,9 @@ CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text o
       div.id = 'practice-turn-' + index;
       div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
       div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
-      div.onclick = function() { speakSingleSentence(item.text); };
+      div.onclick = function() {
+        if (!isDictMode) speakSingleSentence(item.text);
+      };
       practiceBox.appendChild(div);
     });
 
