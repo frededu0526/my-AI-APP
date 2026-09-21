@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI 외국어 대화 연습</title>
-  <!-- PDF 저장을 위한 외부 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
@@ -48,6 +47,7 @@
     .btn-info:hover { background: #138496; }
     .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
     .btn-outline.active { background: var(--primary); color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 0.82rem; width: auto; margin-top: 0; }
 
     .mode-selector { display: flex; gap: 15px; margin-bottom: 20px; background: #e9ecef; padding: 8px; border-radius: 10px; }
     .mode-option { flex: 1; text-align: center; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; background: transparent; transition: 0.2s; }
@@ -69,19 +69,23 @@
     .audio-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .audio-controls button { margin-top: 0; font-size: 0.85rem; padding: 10px 5px; }
     .status-msg { font-size: 0.9rem; color: var(--primary); font-weight: bold; margin-bottom: 10px; min-height: 1.2em; }
+    
     .diff-container { display: flex; flex-direction: column; gap: 20px; margin: 20px 0; }
-    .diff-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+    .diff-row { display: flex; flex-direction: column; gap: 10px; background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+    .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .diff-box h4 { margin: 0 0 8px 0; font-size: 0.85rem; color: var(--text-sub); }
     .diff-text { font-size: 0.95rem; line-height: 1.6; }
     .ins { background-color: var(--diff-added); padding: 2px 4px; border-radius: 4px; }
+    .attempt-history { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ced4da; font-size: 0.85rem; color: #6c757d; }
+
     .loading-spinner { text-align: center; padding: 40px; color: var(--text-sub); }
 
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 8px 15px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
-    .speed-control-bar { display: flex; align-items: center; gap: 8px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 10px 15px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
+    .speed-control-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .speed-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; }
     .speed-control-bar select { width: auto; padding: 4px 8px; font-size: 0.85rem; }
 
-    /* 사전 팝업 UI 완벽 고정 */
+    /* 사전 팝업 UI */
     .dict-popover { position: absolute; background: #1e293b; color: #ffffff; padding: 14px 16px; border-radius: 12px; font-size: 0.88rem; z-index: 9999; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: 280px; border: 1px solid #334155; }
     .dict-popover-close { position: absolute; top: 10px; right: 12px; color: #94a3b8; cursor: pointer; font-size: 1.1rem; font-weight: bold; line-height: 1; }
     .dict-popover-close:hover { color: #ffffff; }
@@ -97,6 +101,12 @@
     .edit-turn-item select { width: 100px; }
     .edit-turn-item input { flex: 1; }
     .edit-turn-item button { width: auto; margin-top: 0; padding: 8px 12px; background: #dc3545; }
+
+    /* PDF 선택 팝업 모달 */
+    .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:10000; }
+    .modal-card { background: white; padding: 25px; border-radius: 12px; max-width: 420px; width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .modal-card h3 { margin-top: 0; }
+    .modal-btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -108,7 +118,7 @@
     <div id="pdfStudentMeta" style="font-size:1rem; color:#495057;"></div>
   </div>
 
-  <!-- 체계적인 사전 팝업창 -->
+  <!-- 사전 팝업창 -->
   <div id="dictPopover" class="dict-popover" onmouseup="event.stopPropagation()">
     <span class="dict-popover-close" onclick="hideDictPopover()">×</span>
     <div id="dictHeader" class="dict-header">🔍 단어 검색</div>
@@ -116,14 +126,36 @@
     <div id="dictNaverBtn" class="dict-link-btn" onclick="openNaverDict()">📖 네이버 사전에서 자세히 보기 ↗</div>
   </div>
 
-  <!-- 1단계: 대본 생성 설정 -->
+  <!-- 1단계: 대본 생성 및 목소리 설정 -->
   <div id="step-1" class="step active">
     <h1>🌱 AI 대화 연습 설정</h1>
-    <p class="subtitle">대본을 생성할 방법과 환경을 선택해 주세요.</p>
+    <p class="subtitle">대본을 생성할 방법과 환경, 목소리를 선택해 주세요.</p>
     
     <div class="mode-selector">
       <div id="mode-ai" class="mode-option active" onclick="setCreationMode('ai')">🤖 AI로 자동 생성하기</div>
       <div id="mode-manual" class="mode-option" onclick="setCreationMode('manual')">✏️ 대본 직접 입력하기</div>
+    </div>
+
+    <!-- 목소리 선택 영역 -->
+    <div class="form-row" style="background:#f1f3f5; padding:12px; border-radius:8px; margin-bottom:18px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label>🤖 AI 역할 목소리</label>
+        <select id="voice-ai-select">
+          <option value="adult-female" selected>성인 여성 목소리</option>
+          <option value="adult-male">성인 남성 목소리</option>
+          <option value="student-female">학생 여성 (밝은 톤)</option>
+          <option value="student-male">학생 남성 (밝은 톤)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>👤 학생 역할 목소리 (미리듣기용)</label>
+        <select id="voice-user-select">
+          <option value="student-male">학생 남성 (밝은 톤)</option>
+          <option value="student-female" selected>학생 여성 (밝은 톤)</option>
+          <option value="adult-male">성인 남성 목소리</option>
+          <option value="adult-female">성인 여성 목소리</option>
+        </select>
+      </div>
     </div>
 
     <div id="ai-config-section">
@@ -192,11 +224,19 @@
     
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
-        <button type="button" id="dictBtn" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
-        <button type="button" id="furiganaBtn2" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
+        <button type="button" id="dictBtn" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="furiganaBtn2" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="speed-control-bar">
-        <label for="step2-speed">🔊 음성 속도:</label>
+        <label>🗣️ AI 목소리:</label>
+        <select id="voice-ai-select-2" onchange="syncVoiceOptions(this.value, 'ai')">
+          <option value="adult-female">성인 여성</option>
+          <option value="adult-male">성인 남성</option>
+          <option value="student-female">학생 여성</option>
+          <option value="student-male">학생 남성</option>
+        </select>
+
+        <label for="step2-speed">🔊 속도:</label>
         <select id="step2-speed" onchange="syncSpeedOptions(this.value)">
           <option value="1.0">1.0배속</option>
           <option value="0.9">0.9배속</option>
@@ -230,8 +270,8 @@
     
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
-        <button type="button" id="dictBtn3" class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem;" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
-        <button type="button" id="furiganaBtn3" class="btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:0.85rem; display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
+        <button type="button" id="dictBtn3" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="furiganaBtn3" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="speed-control-bar">
         <label for="step3-speed">🔊 음성 속도:</label>
@@ -262,8 +302,12 @@
   <!-- 4단계: 피드백 및 결과 다운로드 -->
   <div id="step-4" class="step">
     <h2>📊 대화 대조 피드백</h2>
-    <p class="subtitle">견본 대본과 실제 사용자의 발화를 비교한 결과입니다.</p>
+    <p class="subtitle">견본 대본과 실제 발화를 대조한 결과입니다. 문장별 재녹음이 가능합니다.</p>
     
+    <div id="single-rerecord-status" style="display:none; text-align:center; padding:10px; background:#fff3cd; border-radius:8px; margin-bottom:15px; font-weight:bold; color:#856404;">
+      🎙️ 특정 문장 재녹음 진행 중... 말씀해 주세요!
+    </div>
+
     <div id="diff-box" class="diff-container"></div>
 
     <!-- 학생 정보 입력 칸 -->
@@ -282,10 +326,23 @@
     </div>
 
     <div class="form-row" style="margin-top:20px;">
-      <button type="button" class="btn-info" onclick="downloadPDF()">📄 PDF 다운로드</button>
+      <button type="button" class="btn-info" onclick="openPdfModal()">📄 PDF 다운로드</button>
       <button type="button" class="btn-warning" onclick="shareResult()">🔗 패들렛/앱 공유하기</button>
     </div>
     <button type="button" class="btn-secondary" style="margin-top:10px;" onclick="location.reload()">🔄 처음으로 돌아가기</button>
+  </div>
+</div>
+
+<!-- PDF 다운로드 옵션 선택 팝업 모달 -->
+<div id="pdfModal" class="modal-overlay">
+  <div class="modal-card">
+    <h3>📄 PDF 다운로드 옵션 선택</h3>
+    <p style="font-size:0.9rem; color:var(--text-sub);">원하시는 다운로드 형태를 선택해 주세요.</p>
+    <div class="modal-btn-group">
+      <button type="button" onclick="downloadPDF('final')">✨ 최종 결과물만 다운로드</button>
+      <button type="button" class="btn-info" onclick="downloadPDF('history')">📜 재도전 이력(전체 기록) 포함 다운로드</button>
+      <button type="button" class="btn-secondary" onclick="closePdfModal()">취소</button>
+    </div>
   </div>
 </div>
 
@@ -293,12 +350,13 @@
   var creationMode = 'ai';
   var scriptData = [];
   var currentTurn = 0;
-  var userRecordings = [];
+  var userRecordingsMap = {}; // { userTurnIndex: [ {attempt: 1, actual: '...'}, {attempt: 2, actual: '...'} ] }
   var recognition = null;
   var isRecording = false;
   var isDictMode = false;
   var showFurigana = true;
   var currentDictUrl = "";
+  var reRecordTargetTurn = null; // 특정 문장 재녹음 시 사용
 
   document.getElementById('apiProvider').addEventListener('change', function(e) {
     var link = document.getElementById('keyLink');
@@ -327,6 +385,13 @@
     for (var i = 0; i < boxes.length; i++) {
       if (showFurigana) boxes[i].classList.remove('hide-furigana');
       else boxes[i].classList.add('hide-furigana');
+    }
+  }
+
+  function syncVoiceOptions(val, type) {
+    if (type === 'ai') {
+      document.getElementById('voice-ai-select').value = val;
+      document.getElementById('voice-ai-select-2').value = val;
     }
   }
 
@@ -371,7 +436,6 @@
     if (!isDictMode) hideDictPopover();
   }
 
-  // 안전한 드래그 감지 이벤트
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     
@@ -557,7 +621,7 @@
       div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
       div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
       div.onclick = function() {
-        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text));
+        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text), item.role);
       };
       previewBox.appendChild(div);
     });
@@ -631,13 +695,13 @@
       div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
       div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
       div.onclick = function() {
-        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text));
+        if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text), item.role);
       };
       practiceBox.appendChild(div);
     });
 
     currentTurn = 0;
-    userRecordings = [];
+    userRecordingsMap = {};
     processTurn();
   }
 
@@ -648,7 +712,7 @@
       isRecording = false;
     }
     currentTurn = 0;
-    userRecordings = [];
+    userRecordingsMap = {};
     processTurn();
   }
 
@@ -676,7 +740,7 @@
       statusMsg.innerText = "🤖 AI가 말하는 중입니다...";
       micBtn.disabled = true;
       micBtn.innerText = "🎤 말하기 대기 중";
-      speakTTS(cleanTextForSpeech(turnData.text), function() {
+      speakTTS(cleanTextForSpeech(turnData.text), 'AI', function() {
         currentTurn++;
         processTurn();
       });
@@ -687,22 +751,22 @@
     }
   }
 
-  function speakTTS(text, onEndCallback) {
+  function speakTTS(text, role, onEndCallback) {
     window.speechSynthesis.cancel();
     var utterance = new SpeechSynthesisUtterance(text);
-    applyTTSConfig(utterance);
+    applyTTSConfig(utterance, role);
     utterance.onend = function() { if (onEndCallback) onEndCallback(); };
     window.speechSynthesis.speak(utterance);
   }
 
-  function speakSingleSentence(text) {
+  function speakSingleSentence(text, role) {
     window.speechSynthesis.cancel();
     var utterance = new SpeechSynthesisUtterance(text);
-    applyTTSConfig(utterance);
+    applyTTSConfig(utterance, role || 'AI');
     window.speechSynthesis.speak(utterance);
   }
 
-  function applyTTSConfig(utterance) {
+  function applyTTSConfig(utterance, role) {
     var langSelect = document.getElementById('language').value;
     var speedVal = parseFloat(document.getElementById('step3-speed').value);
     utterance.rate = speedVal * 0.85;
@@ -711,6 +775,28 @@
     else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
     else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
     else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
+
+    // 목소리 4종 정밀 제어 (성별/연령별 Pitch 및 브라우저 음성 세팅)
+    var voiceType = (role === 'AI') ? document.getElementById('voice-ai-select').value : document.getElementById('voice-user-select').value;
+    var voices = window.speechSynthesis.getVoices();
+
+    if (voiceType === 'student-female') {
+      utterance.pitch = 1.3;
+    } else if (voiceType === 'student-male') {
+      utterance.pitch = 1.1;
+    } else if (voiceType === 'adult-female') {
+      utterance.pitch = 1.0;
+    } else if (voiceType === 'adult-male') {
+      utterance.pitch = 0.8;
+    }
+
+    if (voices.length > 0) {
+      var matches = voices.filter(function(v) { return v.lang.startsWith(utterance.lang.substring(0,2)); });
+      if (matches.length > 0) {
+        if (voiceType.includes('female') && matches.length > 0) utterance.voice = matches[0];
+        else if (voiceType.includes('male') && matches.length > 1) utterance.voice = matches[1];
+      }
+    }
   }
 
   function stopTTSOnly() {
@@ -719,7 +805,7 @@
 
   function replayCurrentTurn() {
     if (scriptData[currentTurn]) {
-      speakSingleSentence(cleanTextForSpeech(scriptData[currentTurn].text));
+      speakSingleSentence(cleanTextForSpeech(scriptData[currentTurn].text), scriptData[currentTurn].role);
     }
   }
 
@@ -742,27 +828,45 @@
 
     recognition.onstart = function() {
       isRecording = true;
-      document.getElementById('mic-btn').innerText = "⏹️ 녹음 중지 및 제출";
-      document.getElementById('status-msg').innerText = "🎙️ 듣고 있습니다... 말씀하세요!";
+      if (reRecordTargetTurn === null) {
+        document.getElementById('mic-btn').innerText = "⏹️ 녹음 중지 및 제출";
+        document.getElementById('status-msg').innerText = "🎙️ 듣고 있습니다... 말씀하세요!";
+      }
     };
 
     recognition.onresult = function(event) {
       var transcript = event.results[0][0].transcript;
-      userRecordings.push({
-        turnIndex: currentTurn,
-        expected: cleanTextForSpeech(scriptData[currentTurn].text),
-        actual: transcript
-      });
-      
-      stopRecordingUI();
-      currentTurn++;
-      processTurn();
+
+      if (reRecordTargetTurn !== null) {
+        // 단일 문장 재녹음 처리
+        var targetIndex = reRecordTargetTurn;
+        if (!userRecordingsMap[targetIndex]) userRecordingsMap[targetIndex] = [];
+        userRecordingsMap[targetIndex].push({
+          attempt: userRecordingsMap[targetIndex].length + 1,
+          actual: transcript
+        });
+        reRecordTargetTurn = null;
+        document.getElementById('single-rerecord-status').style.display = 'none';
+        finishPractice(); // 피드백 UI 갱신
+      } else {
+        // 전체 대화 흐름 중 녹음 처리
+        if (!userRecordingsMap[currentTurn]) userRecordingsMap[currentTurn] = [];
+        userRecordingsMap[currentTurn].push({
+          attempt: userRecordingsMap[currentTurn].length + 1,
+          actual: transcript
+        });
+        stopRecordingUI();
+        currentTurn++;
+        processTurn();
+      }
     };
 
     recognition.onerror = function(e) {
       stopRecordingUI();
-      if (e.error === 'no-speech') {
-        document.getElementById('status-msg').innerText = "⚠️ 음성이 감지되지 않았습니다. 다시 버튼을 눌러주세요.";
+      if (reRecordTargetTurn !== null) {
+        alert("재녹음 도중 음성이 인식되지 않았습니다. 다시 시도해 주세요.");
+        reRecordTargetTurn = null;
+        document.getElementById('single-rerecord-status').style.display = 'none';
       } else {
         document.getElementById('status-msg').innerText = "⚠️ 음성 인식 오류가 발생했습니다. 다시 눌러주세요.";
       }
@@ -804,22 +908,69 @@
     }
   }
 
+  function reRecordSingleTurn(turnIndex) {
+    stopTTSOnly();
+    reRecordTargetTurn = turnIndex;
+    document.getElementById('single-rerecord-status').style.display = 'block';
+
+    if (!recognition) {
+      var ok = initSTT();
+      if (!ok) return;
+    }
+    
+    try {
+      recognition.start();
+    } catch (err) {
+      initSTT();
+      setTimeout(function() { recognition.start(); }, 200);
+    }
+  }
+
   function finishPractice() {
     showStep('step-4');
+    renderDiffUI();
+  }
+
+  function renderDiffUI() {
     var diffBox = document.getElementById('diff-box');
     diffBox.innerHTML = '';
 
-    userRecordings.forEach(function(rec) {
-      var row = document.createElement('div');
-      row.className = 'diff-row';
-      var diffHTML = computeDiffHTML(rec.expected, rec.actual);
+    scriptData.forEach(function(item, idx) {
+      if (item.role === 'User') {
+        var row = document.createElement('div');
+        row.className = 'diff-row';
+        var expectedText = cleanTextForSpeech(item.text);
+        
+        var attempts = userRecordingsMap[idx] || [{ attempt: 1, actual: "(발화 기록 없음)" }];
+        var latestAttempt = attempts[attempts.length - 1];
+        var diffHTML = computeDiffHTML(expectedText, latestAttempt.actual);
 
-      row.innerHTML = '<div class="diff-box"><h4>📌 견본 대본</h4><div class="diff-text">' + rec.expected + '</div></div><div class="diff-box"><h4>🗣️ 학생 실제 발화 (대조)</h4><div class="diff-text">' + diffHTML + '</div></div>';
-      diffBox.appendChild(row);
+        var historyHTML = "";
+        if (attempts.length > 1) {
+          historyHTML = '<div class="attempt-history"><b>📜 누적 도전 기록 (' + attempts.length + '회 차):</b><br>';
+          attempts.forEach(function(att) {
+            historyHTML += 'ㆍ ' + att.attempt + '회차: ' + att.actual + '<br>';
+          });
+          historyHTML += '</div>';
+        }
+
+        row.innerHTML = 
+          '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+            '<span style="font-weight:bold; color:var(--primary);">Turn ' + (idx + 1) + ' (User)</span>' +
+            '<button type="button" class="btn-warning btn-sm" onclick="reRecordSingleTurn(' + idx + ')">🎙️ 이 문장 다시 녹음</button>' +
+          '</div>' +
+          '<div class="diff-grid">' +
+            '<div class="diff-box"><h4>📌 견본 대본</h4><div class="diff-text">' + expectedText + '</div></div>' +
+            '<div class="diff-box"><h4>🗣️ 학생 실제 발화 (최신)</h4><div class="diff-text">' + diffHTML + '</div></div>' +
+          '</div>' + historyHTML;
+
+        diffBox.appendChild(row);
+      }
     });
   }
 
   function computeDiffHTML(expected, actual) {
+    if (!actual || actual === "(발화 기록 없음)") return '<span style="color:#dc3545;">(발화 없음)</span>';
     var expWords = expected.split(" ");
     var actWords = actual.split(" ");
     var resultHTML = "";
@@ -838,7 +989,7 @@
     return resultHTML;
   }
 
-  function downloadPDF() {
+  function openPdfModal() {
     var sId = document.getElementById('studentId').value.trim();
     var sName = document.getElementById('studentName').value.trim();
 
@@ -846,19 +997,43 @@
       alert("PDF 다운로드를 위해 학번과 이름을 모두 입력해 주세요.");
       return;
     }
+    document.getElementById('pdfModal').style.display = 'flex';
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdfModal').style.display = 'none';
+  }
+
+  function downloadPDF(mode) {
+    closePdfModal();
+    var sId = document.getElementById('studentId').value.trim();
+    var sName = document.getElementById('studentName').value.trim();
 
     var pdfHeader = document.getElementById('pdfHeader');
     var pdfMeta = document.getElementById('pdfStudentMeta');
     var studentBox = document.getElementById('studentInfoBox');
+    var diffBox = document.getElementById('diff-box');
 
-    pdfMeta.innerText = "학번: " + sId + "  |  이름: " + sName + "  |  작성일: " + new Date().toLocaleDateString();
+    pdfMeta.innerText = "학번: " + sId + "  |  이름: " + sName + "  |  출력 유형: " + (mode === 'final' ? '최종본' : '전체 이력 포함') + "  |  일자: " + new Date().toLocaleDateString();
+    
+    // PDF용 렌더링 조정
+    var originalHTML = diffBox.innerHTML;
+    if (mode === 'final') {
+      var histories = diffBox.querySelectorAll('.attempt-history');
+      histories.forEach(function(h) { h.style.display = 'none'; });
+    }
+
+    // PDF 전용 헤더 표시 및 입력란 감추기
+    var reBtns = diffBox.querySelectorAll('button');
+    reBtns.forEach(function(b) { b.style.display = 'none'; });
+
     pdfHeader.style.display = 'block';
     studentBox.style.display = 'none';
 
     var element = document.getElementById('report-area');
     var opt = {
       margin:       10,
-      filename:     '대화연습결과_' + sId + '_' + sName + '.pdf',
+      filename:     '대화연습결과_' + (mode === 'final' ? '최종본_' : '전체기록_') + sId + '_' + sName + '.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -867,6 +1042,7 @@
     html2pdf().set(opt).from(element).save().then(function() {
       pdfHeader.style.display = 'none';
       studentBox.style.display = 'block';
+      diffBox.innerHTML = originalHTML; // 원래 복구
     });
   }
 
@@ -877,8 +1053,12 @@
     var shareText = "📊 [AI 외국어 대화 연습 결과]\n" +
       "학번: " + sId + " / 이름: " + sName + "\n\n";
 
-    userRecordings.forEach(function(rec, i) {
-      shareText += (i + 1) + ". 견본: " + rec.expected + "\n   발화: " + rec.actual + "\n";
+    scriptData.forEach(function(item, idx) {
+      if (item.role === 'User') {
+        var attempts = userRecordingsMap[idx] || [{ actual: "(발화 없음)" }];
+        var latest = attempts[attempts.length - 1];
+        shareText += "ㆍ 견본: " + cleanTextForSpeech(item.text) + "\n   발화: " + latest.actual + "\n";
+      }
     });
 
     if (navigator.share) {
