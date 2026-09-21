@@ -126,7 +126,7 @@
     <div id="dictNaverBtn" class="dict-link-btn" onclick="openNaverDict()">📖 네이버 사전에서 자세히 보기 ↗</div>
   </div>
 
-  <!-- 1단계: 대본 생성 설정 (목소리 선택 제거됨) -->
+  <!-- 1단계: 대본 생성 설정 -->
   <div id="step-1" class="step active">
     <h1>🌱 AI 대화 연습 설정</h1>
     <p class="subtitle">대본을 생성할 방법과 환경을 선택해 주세요.</p>
@@ -195,7 +195,7 @@
     <button type="button" id="next-btn" onclick="handleStep1Next()">다음 단계로 진행하기</button>
   </div>
 
-  <!-- 2단계: 미리보기 및 편집 (독립 목소리 설정 지원) -->
+  <!-- 2단계: 미리보기 및 편집 -->
   <div id="step-2" class="step">
     <h2>📜 맞춤 대화 대본 미리보기</h2>
     <p class="subtitle">생성된 대본을 확인하거나 수정 후 음성 대화를 시작해 보세요.</p>
@@ -244,12 +244,13 @@
     </div>
 
     <div id="preview-action-btns" class="form-row" style="margin-top:15px;">
+      <button type="button" class="btn-secondary" onclick="goBackToStep1()">⬅️ 이전 단계로 (설정 변경)</button>
       <button type="button" class="btn-secondary" onclick="enableEditor()">✏️ 대본 수정/직접작성</button>
       <button type="button" onclick="startPractice()">🎙️ 음성 대화 시작하기</button>
     </div>
   </div>
 
-  <!-- 3단계: 음성 대화 (독립 목소리 설정 지원) -->
+  <!-- 3단계: 음성 대화 -->
   <div id="step-3" class="step">
     <h2>🎙️ 대화 진행 중</h2>
     <p class="subtitle">카드 문장을 클릭하면 언제든 다시 들을 수 있습니다.</p>
@@ -298,6 +299,7 @@
       </div>
       <div id="status-msg" class="status-msg">준비 중...</div>
       <button type="button" id="mic-btn" onclick="toggleRecord()" disabled>🎤 말하기 시작</button>
+      <button type="button" class="btn-secondary" style="margin-top:10px;" onclick="goBackToStep2()">⬅️ 이전 단계로 (대본 미리보기)</button>
     </div>
   </div>
 
@@ -330,7 +332,10 @@
       <button type="button" class="btn-info" onclick="openPdfModal()">📄 PDF 다운로드</button>
       <button type="button" class="btn-warning" onclick="shareResult()">🔗 패들렛/앱 공유하기</button>
     </div>
-    <button type="button" class="btn-secondary" style="margin-top:10px;" onclick="location.reload()">🔄 처음으로 돌아가기</button>
+    <div class="form-row" style="margin-top:10px;">
+      <button type="button" class="btn-secondary" onclick="goBackToStep3()">⬅️ 이전 단계로 (대화 다시하기)</button>
+      <button type="button" class="btn-secondary" onclick="location.reload()">🔄 처음으로 돌아가기</button>
+    </div>
   </div>
 </div>
 
@@ -443,6 +448,26 @@
     }
   }
 
+  // 이전 단계 이동 함수들
+  function goBackToStep1() {
+    stopTTSOnly();
+    showStep('step-1');
+  }
+
+  function goBackToStep2() {
+    stopTTSOnly();
+    if (isRecording && recognition) {
+      try { recognition.stop(); } catch(e){}
+      isRecording = false;
+    }
+    showStep('step-2');
+  }
+
+  function goBackToStep3() {
+    stopTTSOnly();
+    showStep('step-3');
+  }
+
   function syncSpeedOptions(val) {
     document.getElementById('step2-speed').value = val;
     document.getElementById('step3-speed').value = val;
@@ -458,7 +483,7 @@
     if (!isDictMode) hideDictPopover();
   }
 
-  // 단어 드래그 사전 검색 기능 개선
+  // 단어 드래그 사전 검색 기능
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     
@@ -511,7 +536,7 @@
     }
   }
 
-  // 단어 사전 API 연동 파싱 보완
+  // 단어 사전 API 연동 파싱
   async function fetchWordMeaning(word, lang, provider, apiKey) {
     var prompt = "Translate or define the " + lang + " word/phrase '" + word + "' into Korean in simple dictionary format.\n" +
       "Rules:\n" +
@@ -628,6 +653,32 @@
 
   function cleanTextForSpeech(text) {
     return text.replace(/<rt>.*?<\/rt>/g, '').replace(/<[^>]+>/g, '');
+  }
+
+  // STT 대소문자 및 구두점 자동 보정 함수
+  function formatTranscriptText(text) {
+    if (!text || text === "(발화 기록 없음)") return text;
+    var trimmed = text.trim();
+    if (!trimmed) return trimmed;
+
+    // 1. 문장 첫 글자 및 구두점 뒤 첫 글자 대문자화
+    trimmed = trimmed.replace(/(^\s*|[.!?]\s+)([a-z])/g, function(m, p1, p2) {
+      return p1 + p2.toUpperCase();
+    });
+
+    // 'i' 단독 대문자화 (영어 I 보정)
+    trimmed = trimmed.replace(/\bi\b/g, 'I');
+
+    // 2. 끝 구두점 보정 (마침표, 물음표, 느낌표가 없는 경우)
+    if (!/[.!?]$/.test(trimmed)) {
+      var questionPattern = /^(what|where|when|why|who|how|can|could|would|will|is|are|do|does|did|may|should|have|has)\b/i;
+      if (questionPattern.test(trimmed)) {
+        trimmed += '?';
+      } else {
+        trimmed += '.';
+      }
+    }
+    return trimmed;
   }
 
   function renderPreview() {
@@ -789,7 +840,6 @@
     window.speechSynthesis.speak(utterance);
   }
 
-  // 음성 설정 정밀 적용 (즉시 반영 버그 완벽 수정)
   function applyTTSConfig(utterance, role) {
     var langSelect = document.getElementById('language').value;
     var speedVal = parseFloat(document.getElementById('step3-speed').value);
@@ -800,7 +850,6 @@
     else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
     else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
 
-    // 역할별(AI 또는 학생) 개별 목소리 선택 값 읽기
     var voiceType = (role === 'AI') ? selectedVoices.ai : selectedVoices.user;
 
     if (voiceType === 'student-female') {
@@ -864,13 +913,14 @@
 
     recognition.onresult = function(event) {
       var transcript = event.results[0][0].transcript;
+      var formattedTranscript = formatTranscriptText(transcript);
 
       if (reRecordTargetTurn !== null) {
         var targetIndex = reRecordTargetTurn;
         if (!userRecordingsMap[targetIndex]) userRecordingsMap[targetIndex] = [];
         userRecordingsMap[targetIndex].push({
           attempt: userRecordingsMap[targetIndex].length + 1,
-          actual: transcript
+          actual: formattedTranscript
         });
         reRecordTargetTurn = null;
         document.getElementById('single-rerecord-status').style.display = 'none';
@@ -879,7 +929,7 @@
         if (!userRecordingsMap[currentTurn]) userRecordingsMap[currentTurn] = [];
         userRecordingsMap[currentTurn].push({
           attempt: userRecordingsMap[currentTurn].length + 1,
-          actual: transcript
+          actual: formattedTranscript
         });
         stopRecordingUI();
         currentTurn++;
@@ -969,13 +1019,14 @@
         
         var attempts = userRecordingsMap[idx] || [{ attempt: 1, actual: "(발화 기록 없음)" }];
         var latestAttempt = attempts[attempts.length - 1];
-        var diffHTML = computeDiffHTML(expectedText, latestAttempt.actual);
+        var formattedActual = formatTranscriptText(latestAttempt.actual);
+        var diffHTML = computeDiffHTML(expectedText, formattedActual);
 
         var historyHTML = "";
         if (attempts.length > 1) {
           historyHTML = '<div class="attempt-history"><b>📜 누적 도전 기록 (' + attempts.length + '회 차):</b><br>';
           attempts.forEach(function(att) {
-            historyHTML += 'ㆍ ' + att.attempt + '회차: ' + att.actual + '<br>';
+            historyHTML += 'ㆍ ' + att.attempt + '회차: ' + formatTranscriptText(att.actual) + '<br>';
           });
           historyHTML += '</div>';
         }
@@ -1081,7 +1132,8 @@
       if (item.role === 'User') {
         var attempts = userRecordingsMap[idx] || [{ actual: "(발화 없음)" }];
         var latest = attempts[attempts.length - 1];
-        shareText += "ㆍ 견본: " + cleanTextForSpeech(item.text) + "\n   발화: " + latest.actual + "\n";
+        var formattedActual = formatTranscriptText(latest.actual);
+        shareText += "ㆍ 견본: " + cleanTextForSpeech(item.text) + "\n   발화: " + formattedActual + "\n";
       }
     });
 
