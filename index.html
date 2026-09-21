@@ -81,9 +81,9 @@
     .loading-spinner { text-align: center; padding: 40px; color: var(--text-sub); }
 
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f3f5; padding: 10px 15px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
-    .speed-control-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .speed-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; }
-    .speed-control-bar select { width: auto; padding: 4px 8px; font-size: 0.85rem; }
+    .voice-control-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .voice-control-bar label { font-size: 0.85rem; font-weight: bold; margin: 0; }
+    .voice-control-bar select { width: auto; padding: 4px 8px; font-size: 0.85rem; }
 
     /* 사전 팝업 UI */
     .dict-popover { position: absolute; background: #1e293b; color: #ffffff; padding: 14px 16px; border-radius: 12px; font-size: 0.88rem; z-index: 9999; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: 280px; border: 1px solid #334155; }
@@ -126,36 +126,14 @@
     <div id="dictNaverBtn" class="dict-link-btn" onclick="openNaverDict()">📖 네이버 사전에서 자세히 보기 ↗</div>
   </div>
 
-  <!-- 1단계: 대본 생성 및 목소리 설정 -->
+  <!-- 1단계: 대본 생성 설정 (목소리 선택 제거됨) -->
   <div id="step-1" class="step active">
     <h1>🌱 AI 대화 연습 설정</h1>
-    <p class="subtitle">대본을 생성할 방법과 환경, 목소리를 선택해 주세요.</p>
+    <p class="subtitle">대본을 생성할 방법과 환경을 선택해 주세요.</p>
     
     <div class="mode-selector">
       <div id="mode-ai" class="mode-option active" onclick="setCreationMode('ai')">🤖 AI로 자동 생성하기</div>
       <div id="mode-manual" class="mode-option" onclick="setCreationMode('manual')">✏️ 대본 직접 입력하기</div>
-    </div>
-
-    <!-- 목소리 선택 영역 -->
-    <div class="form-row" style="background:#f1f3f5; padding:12px; border-radius:8px; margin-bottom:18px;">
-      <div class="form-group" style="margin-bottom:0;">
-        <label>🤖 AI 역할 목소리</label>
-        <select id="voice-ai-select">
-          <option value="adult-female" selected>성인 여성 목소리</option>
-          <option value="adult-male">성인 남성 목소리</option>
-          <option value="student-female">학생 여성 (밝은 톤)</option>
-          <option value="student-male">학생 남성 (밝은 톤)</option>
-        </select>
-      </div>
-      <div class="form-group" style="margin-bottom:0;">
-        <label>👤 학생 역할 목소리 (미리듣기용)</label>
-        <select id="voice-user-select">
-          <option value="student-male">학생 남성 (밝은 톤)</option>
-          <option value="student-female" selected>학생 여성 (밝은 톤)</option>
-          <option value="adult-male">성인 남성 목소리</option>
-          <option value="adult-female">성인 여성 목소리</option>
-        </select>
-      </div>
     </div>
 
     <div id="ai-config-section">
@@ -217,7 +195,7 @@
     <button type="button" id="next-btn" onclick="handleStep1Next()">다음 단계로 진행하기</button>
   </div>
 
-  <!-- 2단계: 미리보기 및 편집 -->
+  <!-- 2단계: 미리보기 및 편집 (독립 목소리 설정 지원) -->
   <div id="step-2" class="step">
     <h2>📜 맞춤 대화 대본 미리보기</h2>
     <p class="subtitle">생성된 대본을 확인하거나 수정 후 음성 대화를 시작해 보세요.</p>
@@ -227,16 +205,24 @@
         <button type="button" id="dictBtn" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
         <button type="button" id="furiganaBtn2" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
-      <div class="speed-control-bar">
-        <label>🗣️ AI 목소리:</label>
-        <select id="voice-ai-select-2" onchange="syncVoiceOptions(this.value, 'ai')">
+      <div class="voice-control-bar">
+        <label>🤖 AI 목소리:</label>
+        <select id="v-ai-2" onchange="syncVoice('ai', this.value)">
           <option value="adult-female">성인 여성</option>
           <option value="adult-male">성인 남성</option>
           <option value="student-female">학생 여성</option>
           <option value="student-male">학생 남성</option>
         </select>
 
-        <label for="step2-speed">🔊 속도:</label>
+        <label>👤 학생 목소리:</label>
+        <select id="v-user-2" onchange="syncVoice('user', this.value)">
+          <option value="student-female">학생 여성</option>
+          <option value="student-male">학생 남성</option>
+          <option value="adult-female">성인 여성</option>
+          <option value="adult-male">성인 남성</option>
+        </select>
+
+        <label>🔊 속도:</label>
         <select id="step2-speed" onchange="syncSpeedOptions(this.value)">
           <option value="1.0">1.0배속</option>
           <option value="0.9">0.9배속</option>
@@ -263,7 +249,7 @@
     </div>
   </div>
 
-  <!-- 3단계: 음성 대화 -->
+  <!-- 3단계: 음성 대화 (독립 목소리 설정 지원) -->
   <div id="step-3" class="step">
     <h2>🎙️ 대화 진행 중</h2>
     <p class="subtitle">카드 문장을 클릭하면 언제든 다시 들을 수 있습니다.</p>
@@ -273,8 +259,24 @@
         <button type="button" id="dictBtn3" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
         <button type="button" id="furiganaBtn3" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
-      <div class="speed-control-bar">
-        <label for="step3-speed">🔊 음성 속도:</label>
+      <div class="voice-control-bar">
+        <label>🤖 AI 목소리:</label>
+        <select id="v-ai-3" onchange="syncVoice('ai', this.value)">
+          <option value="adult-female">성인 여성</option>
+          <option value="adult-male">성인 남성</option>
+          <option value="student-female">학생 여성</option>
+          <option value="student-male">학생 남성</option>
+        </select>
+
+        <label>👤 학생 목소리:</label>
+        <select id="v-user-3" onchange="syncVoice('user', this.value)">
+          <option value="student-female">학생 여성</option>
+          <option value="student-male">학생 남성</option>
+          <option value="adult-female">성인 여성</option>
+          <option value="adult-male">성인 남성</option>
+        </select>
+
+        <label>🔊 속도:</label>
         <select id="step3-speed" onchange="syncSpeedOptions(this.value)">
           <option value="1.0">1.0배속</option>
           <option value="0.9">0.9배속</option>
@@ -310,7 +312,6 @@
 
     <div id="diff-box" class="diff-container"></div>
 
-    <!-- 학생 정보 입력 칸 -->
     <div class="student-info-box" id="studentInfoBox">
       <h4 style="margin-bottom:10px;">👤 학생 정보 입력 (PDF 다운로드 및 제출용)</h4>
       <div class="form-row">
@@ -350,13 +351,29 @@
   var creationMode = 'ai';
   var scriptData = [];
   var currentTurn = 0;
-  var userRecordingsMap = {}; // { userTurnIndex: [ {attempt: 1, actual: '...'}, {attempt: 2, actual: '...'} ] }
+  var userRecordingsMap = {};
   var recognition = null;
   var isRecording = false;
   var isDictMode = false;
   var showFurigana = true;
   var currentDictUrl = "";
-  var reRecordTargetTurn = null; // 특정 문장 재녹음 시 사용
+  var reRecordTargetTurn = null;
+
+  // 음성 선택 동기화용 상태 변수
+  var selectedVoices = {
+    ai: 'adult-female',
+    user: 'student-female'
+  };
+
+  // 브라우저 TTS 음성 목록 초기화 캐싱
+  var availableVoices = [];
+  function initVoices() {
+    availableVoices = window.speechSynthesis.getVoices();
+  }
+  if (typeof speechSynthesis !== 'undefined') {
+    speechSynthesis.onvoiceschanged = initVoices;
+    initVoices();
+  }
 
   document.getElementById('apiProvider').addEventListener('change', function(e) {
     var link = document.getElementById('keyLink');
@@ -388,10 +405,15 @@
     }
   }
 
-  function syncVoiceOptions(val, type) {
-    if (type === 'ai') {
-      document.getElementById('voice-ai-select').value = val;
-      document.getElementById('voice-ai-select-2').value = val;
+  // AI 및 학생 목소리 2개 독립 동기화
+  function syncVoice(role, val) {
+    selectedVoices[role] = val;
+    if (role === 'ai') {
+      document.getElementById('v-ai-2').value = val;
+      document.getElementById('v-ai-3').value = val;
+    } else {
+      document.getElementById('v-user-2').value = val;
+      document.getElementById('v-user-3').value = val;
     }
   }
 
@@ -436,6 +458,7 @@
     if (!isDictMode) hideDictPopover();
   }
 
+  // 단어 드래그 사전 검색 기능 개선
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     
@@ -478,7 +501,7 @@
         content.innerHTML = "네이버 사전을 이용해 확인해 주세요.";
       }
     } else {
-      content.innerHTML = "API 키를 입력하시면 요약 뜻이 표시됩니다.";
+      content.innerHTML = "네이버 사전 버튼을 클릭하시면 자세한 뜻을 볼 수 있습니다.";
     }
   }
 
@@ -488,15 +511,12 @@
     }
   }
 
+  // 단어 사전 API 연동 파싱 보완
   async function fetchWordMeaning(word, lang, provider, apiKey) {
-    var prompt = "Translate or define the " + lang + " word/phrase '" + word + "' into Korean in strict dictionary format.\n" +
+    var prompt = "Translate or define the " + lang + " word/phrase '" + word + "' into Korean in simple dictionary format.\n" +
       "Rules:\n" +
-      "1. Format strictly as:\n" +
-      "[Pronunciation/Furigana if Japanese/Chinese]\n" +
-      "1. [Part of speech] Meaning\n" +
-      "2. [Part of speech] Meaning (optional)\n" +
-      "2. Provide only 1-2 primary meanings.\n" +
-      "3. Absolutely NO extra introduction or explanation.";
+      "1. Provide 1-2 primary meanings only.\n" +
+      "2. Return ONLY the Korean translation/definition without greetings or explanation.";
 
     if (provider === 'gemini') {
       const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + apiKey, {
@@ -505,7 +525,10 @@
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       const data = await res.json();
-      return data.candidates[0].content.parts[0].text.trim();
+      if (data.candidates && data.candidates[0].content.parts[0].text) {
+        return data.candidates[0].content.parts[0].text.trim();
+      }
+      throw new Error("Parsing error");
     } else {
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: 'POST',
@@ -766,6 +789,7 @@
     window.speechSynthesis.speak(utterance);
   }
 
+  // 음성 설정 정밀 적용 (즉시 반영 버그 완벽 수정)
   function applyTTSConfig(utterance, role) {
     var langSelect = document.getElementById('language').value;
     var speedVal = parseFloat(document.getElementById('step3-speed').value);
@@ -776,25 +800,29 @@
     else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
     else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
 
-    // 목소리 4종 정밀 제어 (성별/연령별 Pitch 및 브라우저 음성 세팅)
-    var voiceType = (role === 'AI') ? document.getElementById('voice-ai-select').value : document.getElementById('voice-user-select').value;
-    var voices = window.speechSynthesis.getVoices();
+    // 역할별(AI 또는 학생) 개별 목소리 선택 값 읽기
+    var voiceType = (role === 'AI') ? selectedVoices.ai : selectedVoices.user;
 
     if (voiceType === 'student-female') {
-      utterance.pitch = 1.3;
+      utterance.pitch = 1.35;
     } else if (voiceType === 'student-male') {
-      utterance.pitch = 1.1;
+      utterance.pitch = 1.15;
     } else if (voiceType === 'adult-female') {
       utterance.pitch = 1.0;
     } else if (voiceType === 'adult-male') {
-      utterance.pitch = 0.8;
+      utterance.pitch = 0.75;
     }
 
+    var voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      var matches = voices.filter(function(v) { return v.lang.startsWith(utterance.lang.substring(0,2)); });
+      var langCode = utterance.lang.substring(0,2);
+      var matches = voices.filter(function(v) { return v.lang.startsWith(langCode); });
       if (matches.length > 0) {
-        if (voiceType.includes('female') && matches.length > 0) utterance.voice = matches[0];
-        else if (voiceType.includes('male') && matches.length > 1) utterance.voice = matches[1];
+        if (voiceType.includes('female')) {
+          utterance.voice = matches[0];
+        } else if (voiceType.includes('male')) {
+          utterance.voice = matches[matches.length > 1 ? 1 : 0];
+        }
       }
     }
   }
@@ -838,7 +866,6 @@
       var transcript = event.results[0][0].transcript;
 
       if (reRecordTargetTurn !== null) {
-        // 단일 문장 재녹음 처리
         var targetIndex = reRecordTargetTurn;
         if (!userRecordingsMap[targetIndex]) userRecordingsMap[targetIndex] = [];
         userRecordingsMap[targetIndex].push({
@@ -847,9 +874,8 @@
         });
         reRecordTargetTurn = null;
         document.getElementById('single-rerecord-status').style.display = 'none';
-        finishPractice(); // 피드백 UI 갱신
+        finishPractice();
       } else {
-        // 전체 대화 흐름 중 녹음 처리
         if (!userRecordingsMap[currentTurn]) userRecordingsMap[currentTurn] = [];
         userRecordingsMap[currentTurn].push({
           attempt: userRecordingsMap[currentTurn].length + 1,
@@ -1016,14 +1042,12 @@
 
     pdfMeta.innerText = "학번: " + sId + "  |  이름: " + sName + "  |  출력 유형: " + (mode === 'final' ? '최종본' : '전체 이력 포함') + "  |  일자: " + new Date().toLocaleDateString();
     
-    // PDF용 렌더링 조정
     var originalHTML = diffBox.innerHTML;
     if (mode === 'final') {
       var histories = diffBox.querySelectorAll('.attempt-history');
       histories.forEach(function(h) { h.style.display = 'none'; });
     }
 
-    // PDF 전용 헤더 표시 및 입력란 감추기
     var reBtns = diffBox.querySelectorAll('button');
     reBtns.forEach(function(b) { b.style.display = 'none'; });
 
@@ -1042,7 +1066,7 @@
     html2pdf().set(opt).from(element).save().then(function() {
       pdfHeader.style.display = 'none';
       studentBox.style.display = 'block';
-      diffBox.innerHTML = originalHTML; // 원래 복구
+      diffBox.innerHTML = originalHTML;
     });
   }
 
