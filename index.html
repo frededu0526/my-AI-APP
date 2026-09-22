@@ -46,7 +46,7 @@
     .btn-info { background: #17a2b8; }
     .btn-info:hover { background: #138496; }
     .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
-    .btn-outline.active { background: var(--primary); color: white; }
+    .btn-outline.active { background: #fff3cd; color: #856404; border-color: #ffe082; font-weight: bold; }
     .btn-sm { padding: 6px 12px; font-size: 0.82rem; width: auto; margin-top: 0; }
 
     .mode-selector { display: flex; gap: 15px; margin-bottom: 20px; background: #e9ecef; padding: 8px; border-radius: 10px; }
@@ -54,6 +54,16 @@
     .mode-option.active { background: white; color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
     .chat-box { display: flex; flex-direction: column; gap: 15px; margin: 20px 0; max-height: 450px; overflow-y: auto; padding-right: 5px; }
+    
+    /* 형광펜 모드 활성화 시 커서 스타일 적용 */
+    body.dict-active .script-text { 
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="%23ffd54f"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>') 2 22, text !important;
+    }
+    body.dict-active .script-text::selection {
+      background-color: #ffe082;
+      color: #000;
+    }
+
     .turn-card { padding: 15px; border-radius: var(--border-radius); border: 2px solid transparent; transition: all 0.3s ease; cursor: pointer; position: relative; }
     .turn-card:hover { border-color: #ced4da; }
     .turn-card.ai { background-color: var(--ai-bubble); align-self: flex-start; width: 90%; }
@@ -157,7 +167,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>학습 언어</label>
-          <select id="language" onchange="toggleJaFuriganaBtnVisibility()">
+          <select id="language" onchange="toggleLanguageOptions()">
             <option value="English">영어 (English)</option>
             <option value="Japanese">일본어 (Japanese)</option>
             <option value="Chinese">중국어 (Chinese)</option>
@@ -202,10 +212,17 @@
     
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
-        <button type="button" id="dictBtn" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="dictBtn" class="btn-outline btn-sm" onclick="toggleDictMode()">🖍️ 형광펜 사전: OFF</button>
         <button type="button" id="furiganaBtn2" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="voice-control-bar">
+        <!-- 영어 억양 선택 옵션 추가 -->
+        <label class="en-accent-group">💬 억양:</label>
+        <select id="en-accent-2" class="en-accent-group" onchange="syncAccent(this.value)">
+          <option value="en-US" selected>미국식 (US)</option>
+          <option value="en-GB">영국식 (UK)</option>
+        </select>
+
         <label>🤖 AI 목소리:</label>
         <select id="v-ai-2" onchange="syncVoice('ai', this.value)">
           <option value="adult-female">성인 여성</option>
@@ -257,10 +274,17 @@
     
     <div class="top-bar">
       <div style="display:flex; gap:8px;">
-        <button type="button" id="dictBtn3" class="btn-outline btn-sm" onclick="toggleDictMode()">📖 사전 검색 모드: OFF</button>
+        <button type="button" id="dictBtn3" class="btn-outline btn-sm" onclick="toggleDictMode()">🖍️ 형광펜 사전: OFF</button>
         <button type="button" id="furiganaBtn3" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="voice-control-bar">
+        <!-- 영어 억양 선택 옵션 추가 -->
+        <label class="en-accent-group">💬 억양:</label>
+        <select id="en-accent-3" class="en-accent-group" onchange="syncAccent(this.value)">
+          <option value="en-US" selected>미국식 (US)</option>
+          <option value="en-GB">영국식 (UK)</option>
+        </select>
+
         <label>🤖 AI 목소리:</label>
         <select id="v-ai-3" onchange="syncVoice('ai', this.value)">
           <option value="adult-female">성인 여성</option>
@@ -363,6 +387,7 @@
   var showFurigana = true;
   var currentDictUrl = "";
   var reRecordTargetTurn = null;
+  var selectedAccent = 'en-US'; // 기본 미국식
 
   // 음성 선택 동기화용 상태 변수
   var selectedVoices = {
@@ -391,10 +416,25 @@
     }
   });
 
-  function toggleJaFuriganaBtnVisibility() {
-    var isJa = document.getElementById('language').value === 'Japanese';
+  function toggleLanguageOptions() {
+    var lang = document.getElementById('language').value;
+    var isJa = lang === 'Japanese';
+    var isEn = lang === 'English';
+
     document.getElementById('furiganaBtn2').style.display = isJa ? 'inline-block' : 'none';
     document.getElementById('furiganaBtn3').style.display = isJa ? 'inline-block' : 'none';
+
+    // 영어일 때만 억양 선택 UI 노출
+    var accentGroups = document.querySelectorAll('.en-accent-group');
+    accentGroups.forEach(function(el) {
+      el.style.display = isEn ? 'inline-block' : 'none';
+    });
+  }
+
+  function syncAccent(val) {
+    selectedAccent = val;
+    document.getElementById('en-accent-2').value = val;
+    document.getElementById('en-accent-3').value = val;
   }
 
   function toggleFurigana() {
@@ -437,7 +477,7 @@
   }
 
   function handleStep1Next() {
-    toggleJaFuriganaBtnVisibility();
+    toggleLanguageOptions();
     if (creationMode === 'ai') {
       requestMicPermissionAndStart();
     } else {
@@ -473,17 +513,24 @@
     document.getElementById('step3-speed').value = val;
   }
 
+  // 2. 사전 형광펜 모드 변경 기능
   function toggleDictMode() {
     isDictMode = !isDictMode;
-    var btnText = isDictMode ? "📖 사전 검색 모드: ON" : "📖 사전 검색 모드: OFF";
+    var btnText = isDictMode ? "🖍️ 형광펜 사전: ON" : "🖍️ 형광펜 사전: OFF";
     document.getElementById('dictBtn').innerText = btnText;
     document.getElementById('dictBtn3').innerText = btnText;
     document.getElementById('dictBtn').classList.toggle('active', isDictMode);
     document.getElementById('dictBtn3').classList.toggle('active', isDictMode);
-    if (!isDictMode) hideDictPopover();
+    
+    if (isDictMode) {
+      document.body.classList.add('dict-active');
+    } else {
+      document.body.classList.remove('dict-active');
+      hideDictPopover();
+    }
   }
 
-  // 단어 드래그 사전 검색 기능
+  // 형광펜 드래그 드롭 단어 검색 기능
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     
@@ -840,13 +887,15 @@
     window.speechSynthesis.speak(utterance);
   }
 
+  // 1. 영어 억양 선택 적용 로직 보완
   function applyTTSConfig(utterance, role) {
     var langSelect = document.getElementById('language').value;
     var speedVal = parseFloat(document.getElementById('step3-speed').value);
     utterance.rate = speedVal * 0.85;
 
-    if (langSelect === 'English') utterance.lang = 'en-US';
-    else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
+    if (langSelect === 'English') {
+      utterance.lang = selectedAccent; // en-US 또는 en-GB 적용
+    } else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
     else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
     else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
 
@@ -864,8 +913,15 @@
 
     var voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      var langCode = utterance.lang.substring(0,2);
-      var matches = voices.filter(function(v) { return v.lang.startsWith(langCode); });
+      var targetLang = utterance.lang.toLowerCase();
+      var matches = voices.filter(function(v) { return v.lang.toLowerCase().replace('_', '-').startsWith(targetLang); });
+      
+      // 언어/억양 코드가 정밀하게 일치하지 않을 때 범용 언어(ex: en)로 검색
+      if (matches.length === 0) {
+        var baseLang = targetLang.split('-')[0];
+        matches = voices.filter(function(v) { return v.lang.toLowerCase().startsWith(baseLang); });
+      }
+
       if (matches.length > 0) {
         if (voiceType.includes('female')) {
           utterance.voice = matches[0];
@@ -895,7 +951,7 @@
 
     recognition = new SpeechRecognition();
     var langSelect = document.getElementById('language').value;
-    if (langSelect === 'English') recognition.lang = 'en-US';
+    if (langSelect === 'English') recognition.lang = selectedAccent;
     else if (langSelect === 'Japanese') recognition.lang = 'ja-JP';
     else if (langSelect === 'Chinese') recognition.lang = 'zh-CN';
     else if (langSelect === 'Spanish') recognition.lang = 'es-ES';
@@ -1156,6 +1212,9 @@
     }
     document.getElementById(stepId).classList.add('active');
   }
+
+  // 초기 상태 체크
+  toggleLanguageOptions();
 </script>
 </body>
 </html>
