@@ -72,6 +72,10 @@
     .speaker-label { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin-bottom: 4px; display: flex; justify-content: space-between; }
     .script-text { font-size: 1.05rem; line-height: 1.6; }
 
+    /* 해석 텍스트 스타일 */
+    .script-translation { font-size: 0.88rem; color: #555; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ced4da; display: none; }
+    .show-translation .script-translation { display: block; }
+
     ruby rt { font-size: 0.65em; color: #d9534f; font-weight: normal; }
     .hide-furigana ruby rt { display: none; }
 
@@ -108,8 +112,9 @@
     .pdf-header { display: none; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #2b2d42; }
 
     .edit-turn-item { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-    .edit-turn-item select { width: 100px; }
-    .edit-turn-item input { flex: 1; }
+    .edit-turn-item select { width: 90px; }
+    .edit-turn-item input.edit-text { flex: 2; }
+    .edit-turn-item input.edit-trans { flex: 1.5; }
     .edit-turn-item button { width: auto; margin-top: 0; padding: 8px 12px; background: #dc3545; }
 
     /* PDF 선택 팝업 모달 */
@@ -211,12 +216,12 @@
     <p class="subtitle">생성된 대본을 확인하거나 수정 후 음성 대화를 시작해 보세요.</p>
     
     <div class="top-bar">
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" id="dictBtn" class="btn-outline btn-sm" onclick="toggleDictMode()">🖍️ 형광펜 사전: OFF</button>
+        <button type="button" id="transBtn2" class="btn-outline btn-sm" onclick="toggleTranslation()">🇰🇷 해석 보기: OFF</button>
         <button type="button" id="furiganaBtn2" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="voice-control-bar">
-        <!-- 영어 억양 선택 옵션 추가 -->
         <label class="en-accent-group">💬 억양:</label>
         <select id="en-accent-2" class="en-accent-group" onchange="syncAccent(this.value)">
           <option value="en-US" selected>미국식 (US)</option>
@@ -273,12 +278,12 @@
     <p class="subtitle">카드 문장을 클릭하면 언제든 다시 들을 수 있습니다.</p>
     
     <div class="top-bar">
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" id="dictBtn3" class="btn-outline btn-sm" onclick="toggleDictMode()">🖍️ 형광펜 사전: OFF</button>
+        <button type="button" id="transBtn3" class="btn-outline btn-sm" onclick="toggleTranslation()">🇰🇷 해석 보기: OFF</button>
         <button type="button" id="furiganaBtn3" class="btn-secondary btn-sm" style="display:none;" onclick="toggleFurigana()">🌸 가나 감추기</button>
       </div>
       <div class="voice-control-bar">
-        <!-- 영어 억양 선택 옵션 추가 -->
         <label class="en-accent-group">💬 억양:</label>
         <select id="en-accent-3" class="en-accent-group" onchange="syncAccent(this.value)">
           <option value="en-US" selected>미국식 (US)</option>
@@ -384,18 +389,17 @@
   var recognition = null;
   var isRecording = false;
   var isDictMode = false;
+  var isShowTranslation = false;
   var showFurigana = true;
   var currentDictUrl = "";
   var reRecordTargetTurn = null;
-  var selectedAccent = 'en-US'; // 기본 미국식
+  var selectedAccent = 'en-US';
 
-  // 음성 선택 동기화용 상태 변수
   var selectedVoices = {
     ai: 'adult-female',
     user: 'student-female'
   };
 
-  // 브라우저 TTS 음성 목록 초기화 캐싱
   var availableVoices = [];
   function initVoices() {
     availableVoices = window.speechSynthesis.getVoices();
@@ -424,7 +428,6 @@
     document.getElementById('furiganaBtn2').style.display = isJa ? 'inline-block' : 'none';
     document.getElementById('furiganaBtn3').style.display = isJa ? 'inline-block' : 'none';
 
-    // 영어일 때만 억양 선택 UI 노출
     var accentGroups = document.querySelectorAll('.en-accent-group');
     accentGroups.forEach(function(el) {
       el.style.display = isEn ? 'inline-block' : 'none';
@@ -435,6 +438,22 @@
     selectedAccent = val;
     document.getElementById('en-accent-2').value = val;
     document.getElementById('en-accent-3').value = val;
+  }
+
+  // 해석 보기 토글 기능
+  function toggleTranslation() {
+    isShowTranslation = !isShowTranslation;
+    var btnText = isShowTranslation ? "🇰🇷 해석 보기: ON" : "🇰🇷 해석 보기: OFF";
+    document.getElementById('transBtn2').innerText = btnText;
+    document.getElementById('transBtn3').innerText = btnText;
+    document.getElementById('transBtn2').classList.toggle('active', isShowTranslation);
+    document.getElementById('transBtn3').classList.toggle('active', isShowTranslation);
+
+    var boxes = document.querySelectorAll('.chat-box');
+    boxes.forEach(function(box) {
+      if (isShowTranslation) box.classList.add('show-translation');
+      else box.classList.remove('show-translation');
+    });
   }
 
   function toggleFurigana() {
@@ -450,7 +469,6 @@
     }
   }
 
-  // AI 및 학생 목소리 2개 독립 동기화
   function syncVoice(role, val) {
     selectedVoices[role] = val;
     if (role === 'ai') {
@@ -488,7 +506,6 @@
     }
   }
 
-  // 이전 단계 이동 함수들
   function goBackToStep1() {
     stopTTSOnly();
     showStep('step-1');
@@ -513,7 +530,6 @@
     document.getElementById('step3-speed').value = val;
   }
 
-  // 2. 사전 형광펜 모드 변경 기능
   function toggleDictMode() {
     isDictMode = !isDictMode;
     var btnText = isDictMode ? "🖍️ 형광펜 사전: ON" : "🖍️ 형광펜 사전: OFF";
@@ -530,7 +546,6 @@
     }
   }
 
-  // 형광펜 드래그 드롭 단어 검색 기능
   document.addEventListener('mouseup', function(e) {
     if (!isDictMode) return;
     
@@ -583,7 +598,6 @@
     }
   }
 
-  // 단어 사전 API 연동 파싱
   async function fetchWordMeaning(word, lang, provider, apiKey) {
     var prompt = "Translate or define the " + lang + " word/phrase '" + word + "' into Korean in simple dictionary format.\n" +
       "Rules:\n" +
@@ -661,8 +675,9 @@
       "- Number of Turns: " + config.turns + " turns (1 turn = 1 AI response + 1 User response)\n" +
       "- Additional Notes: " + config.customNotes + "\n" +
       jaFuriganaInstruction + "\n\n" +
-      "CRITICAL: Return ONLY a valid JSON Array format like below, with no extra text or markdown syntax.\n" +
-      "[\n  {\"role\": \"AI\", \"text\": \"...\"},\n  {\"role\": \"User\", \"text\": \"...\"}\n]";
+      "CRITICAL: Include Korean translation for each line in 'translation' field.\n" +
+      "Return ONLY a valid JSON Array format like below, with no extra text or markdown syntax.\n" +
+      "[\n  {\"role\": \"AI\", \"text\": \"...\", \"translation\": \"한국어 해석\"},\n  {\"role\": \"User\", \"text\": \"...\", \"translation\": \"한국어 해석\"}\n]";
 
     try {
       var jsonString = "";
@@ -702,21 +717,17 @@
     return text.replace(/<rt>.*?<\/rt>/g, '').replace(/<[^>]+>/g, '');
   }
 
-  // STT 대소문자 및 구두점 자동 보정 함수
   function formatTranscriptText(text) {
     if (!text || text === "(발화 기록 없음)") return text;
     var trimmed = text.trim();
     if (!trimmed) return trimmed;
 
-    // 1. 문장 첫 글자 및 구두점 뒤 첫 글자 대문자화
     trimmed = trimmed.replace(/(^\s*|[.!?]\s+)([a-z])/g, function(m, p1, p2) {
       return p1 + p2.toUpperCase();
     });
 
-    // 'i' 단독 대문자화 (영어 I 보정)
     trimmed = trimmed.replace(/\bi\b/g, 'I');
 
-    // 2. 끝 구두점 보정 (마침표, 물음표, 느낌표가 없는 경우)
     if (!/[.!?]$/.test(trimmed)) {
       var questionPattern = /^(what|where|when|why|who|how|can|could|would|will|is|are|do|does|did|may|should|have|has)\b/i;
       if (questionPattern.test(trimmed)) {
@@ -737,10 +748,16 @@
       return;
     }
 
+    if (isShowTranslation) previewBox.classList.add('show-translation');
+    else previewBox.classList.remove('show-translation');
+
     scriptData.forEach(function(item) {
       var div = document.createElement('div');
       div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
-      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
+      var transText = item.translation ? item.translation : '';
+      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div>' +
+                      '<div class="script-text">' + item.text + '</div>' +
+                      '<div class="script-translation">💡 ' + transText + '</div>';
       div.onclick = function() {
         if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text), item.role);
       };
@@ -757,16 +774,17 @@
     rows.innerHTML = '';
 
     if (scriptData.length === 0) {
-      addEditorRow('AI', '');
-      addEditorRow('User', '');
+      addEditorRow('AI', '', '');
+      addEditorRow('User', '', '');
     } else {
-      scriptData.forEach(function(item) { addEditorRow(item.role, item.text); });
+      scriptData.forEach(function(item) { addEditorRow(item.role, item.text, item.translation); });
     }
   }
 
-  function addEditorRow(role, text) {
+  function addEditorRow(role, text, trans) {
     role = role || 'AI';
     text = text || '';
+    trans = trans || '';
     var rows = document.getElementById('editor-rows');
     var div = document.createElement('div');
     div.className = 'edit-turn-item';
@@ -774,7 +792,8 @@
       '<option value="AI" ' + (role === 'AI' ? 'selected' : '') + '>AI</option>' +
       '<option value="User" ' + (role === 'User' ? 'selected' : '') + '>User</option>' +
       '</select>' +
-      '<input type="text" class="edit-text" value="' + text.replace(/"/g, '&quot;') + '" placeholder="대화 문장을 입력해 주세요.">' +
+      '<input type="text" class="edit-text" value="' + text.replace(/"/g, '&quot;') + '" placeholder="대화 문장 입력">' +
+      '<input type="text" class="edit-trans" value="' + trans.replace(/"/g, '&quot;') + '" placeholder="한국어 해석 (선택)">' +
       '<button type="button" onclick="this.parentElement.remove()">삭제</button>';
     rows.appendChild(div);
   }
@@ -785,7 +804,8 @@
     items.forEach(function(el) {
       var role = el.querySelector('.edit-role').value;
       var text = el.querySelector('.edit-text').value.trim();
-      if (text) newScript.push({ role: role, text: text });
+      var trans = el.querySelector('.edit-trans').value.trim();
+      if (text) newScript.push({ role: role, text: text, translation: trans });
     });
 
     if (newScript.length === 0) {
@@ -810,11 +830,17 @@
     var practiceBox = document.getElementById('practice-box');
     practiceBox.innerHTML = '';
 
+    if (isShowTranslation) practiceBox.classList.add('show-translation');
+    else practiceBox.classList.remove('show-translation');
+
     scriptData.forEach(function(item, index) {
       var div = document.createElement('div');
       div.id = 'practice-turn-' + index;
       div.className = 'turn-card ' + (item.role === 'AI' ? 'ai' : 'user');
-      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div><div class="script-text">' + item.text + '</div>';
+      var transText = item.translation ? item.translation : '';
+      div.innerHTML = '<div class="speaker-label"><span>' + item.role + '</span><span>🔊 클릭해서 듣기</span></div>' +
+                      '<div class="script-text">' + item.text + '</div>' +
+                      '<div class="script-translation">💡 ' + transText + '</div>';
       div.onclick = function() {
         if (!isDictMode) speakSingleSentence(cleanTextForSpeech(item.text), item.role);
       };
@@ -887,14 +913,13 @@
     window.speechSynthesis.speak(utterance);
   }
 
-  // 1. 영어 억양 선택 적용 로직 보완
   function applyTTSConfig(utterance, role) {
     var langSelect = document.getElementById('language').value;
     var speedVal = parseFloat(document.getElementById('step3-speed').value);
     utterance.rate = speedVal * 0.85;
 
     if (langSelect === 'English') {
-      utterance.lang = selectedAccent; // en-US 또는 en-GB 적용
+      utterance.lang = selectedAccent;
     } else if (langSelect === 'Japanese') utterance.lang = 'ja-JP';
     else if (langSelect === 'Chinese') utterance.lang = 'zh-CN';
     else if (langSelect === 'Spanish') utterance.lang = 'es-ES';
@@ -916,7 +941,6 @@
       var targetLang = utterance.lang.toLowerCase();
       var matches = voices.filter(function(v) { return v.lang.toLowerCase().replace('_', '-').startsWith(targetLang); });
       
-      // 언어/억양 코드가 정밀하게 일치하지 않을 때 범용 언어(ex: en)로 검색
       if (matches.length === 0) {
         var baseLang = targetLang.split('-')[0];
         matches = voices.filter(function(v) { return v.lang.toLowerCase().startsWith(baseLang); });
@@ -1213,7 +1237,6 @@
     document.getElementById(stepId).classList.add('active');
   }
 
-  // 초기 상태 체크
   toggleLanguageOptions();
 </script>
 </body>
